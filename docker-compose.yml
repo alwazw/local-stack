@@ -38,6 +38,7 @@ services:
       - "127.0.0.1:${PORT_AGENTZERO_API:-8081}:8080"
     networks:
       - ai-ml
+      - agent-communication
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Agent-Zero"
@@ -92,10 +93,13 @@ services:
       - "0.0.0.0"
       - "--port"
       - "8000"
-      - "--"
-      - "python3"
-      - "-c"
-      - "from mcp.server.fastmcp import FastMCP; mcp = FastMCP('aef3-tools'); mcp.run()"
+      - "--config"
+      - "/app/config.json"
+      - "--hot-reload"
+    volumes:
+      - ./compose/ai/mcpo/config.json:/app/config.json:ro
+      - ./compose/ai/mcpo/filesystem_server.py:/app/filesystem_server.py:ro
+      - ./projects:/workspace
     ports:
       - "127.0.0.1:${PORT_MCPO}:8000"
     networks:
@@ -181,6 +185,7 @@ services:
       - hermes_agent_src:/opt/hermes
     networks:
       - ai-ml
+      - agent-communication
     healthcheck:
       test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
       interval: 30s
@@ -574,6 +579,8 @@ networks:
   database:
     external: true
   ai-ml:
+    external: true
+  agent-communication:
     external: true
   security:
     external: true

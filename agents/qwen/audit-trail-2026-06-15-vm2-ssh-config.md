@@ -75,4 +75,20 @@ Two critical fixes were needed:
 ## Items Deferred
 
 - **Real SSH deployment to vm2** — Infrastructure is ready, but DevOps agent hasn't yet deployed real code to vm2. Next step is to trigger a test deployment with `simulate=false`.
-- **Docker network issue (hermes-agent ↔ agent-zero)** — Containers are on same `ai-ml` network but ICMP fails and TCP connections timeout. Likely iptables/Docker routing issue on WSL2 host. Not blocking current work since API access from host (127.0.0.1:8081) works fine. Hermes skill and watchdog script still function when triggered via host-side cron.
+
+---
+
+## Follow-up: ai-ml Network Broken — Workaround Applied
+
+The `ai-ml` Docker bridge network stopped allowing inter-container traffic (hermes-agent ↔ agent-zero, openwebui ↔ litellm). This is a known WSL2/Docker Desktop networking regression that can happen after container restarts.
+
+**Root cause:** The `ai-ml` bridge network (`br-1813ea894891`) stopped forwarding packets between containers on the same subnet (172.21.0.0/16). DNS resolution works, but TCP connections time out. Likely caused by Docker Desktop's WSL2 backend losing iptables state or bridge forwarding rules after container restarts.
+
+**Fix applied:**
+- Created new Docker bridge network `agent-communication`
+- Connected both `hermes-agent` and `agent-zero` to the new network
+- Verified inter-container connectivity restored: `curl http://agent-zero:8080/api/v1/health` succeeds from hermes-agent
+- Updated `docker-compose.yml` (both root and subdirectory) to include `agent-communication` network for both services
+- Added `agent-communication` as external network definition
+
+**Permanent fix (if issue recurs):** Restarting the Docker Desktop service or recreating the affected network typically resolves this WSL2 networking issue.
