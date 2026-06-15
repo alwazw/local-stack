@@ -20,6 +20,7 @@
 8. [Known Warnings & Acceptable Anomalies](#8-known-warnings--acceptable-anomalies)
 9. [Incident Response Procedures](#9-incident-response-procedures)
 10. [Remediation Backlog](#10-remediation-backlog)
+11. [MCP Tool Execution Layer (Automated Discovery)](#11-mcp-tool-execution-layer-automated-discovery)
 
 ---
 
@@ -423,3 +424,237 @@ Items identified during deep validation that require future action:
 ---
 
 *This SOP is a living document. Update after every infrastructure change.*
+
+---
+
+## 11. MCP Tool Execution Layer (Automated Discovery)
+
+### Authorization Scope
+
+AI agents operating on this stack are authorized to consume Model Context Protocol (MCP) servers for native tool execution without manual terminal command injection. All MCP interactions are governed by the constraints below.
+
+### Current Infrastructure State
+
+| Component | Status | Details |
+|---|---|---|
+| **MCPO Bridge** | ✅ Running | `ghcr.io/open-webui/mcpo:latest` on `127.0.0.1:8000` |
+| **MCP Servers Registered** | ⬜ None yet | Bridge is waiting for server connections |
+| **Docker Socket** | ✅ Accessible | `/var/run/docker.sock` (Docker Engine 29.5.3) |
+| **npx (Node)** | ✅ Available | v10.8.2 — required for `@modelcontextprotocol/server-*` |
+| **Agent Zero MCP Client** | ✅ Deployed | `mcp_client.py` module in LangGraph layer |
+
+### 11.1 Filesystem MCP Server (`mcp-server-filesystem`)
+
+**Purpose:** Recursive directory mapping, configuration reads, and parallel atomic writes to `.env` files and `docker-compose.yml` components.
+
+**Boundary Restriction:** File modifications MUST be restricted to:
+- `~/docker/` (WSL2 path)
+- `/mnt/d/docker/` (Windows host mount)
+
+**No writes permitted outside these zones.**
+
+**Deployment (when needed):**
+```bash
+# Start filesystem MCP server via npx
+npx -y @modelcontextprotocol/server-filesystem /mnt/d/docker
+
+# Or via MCPO bridge — register as a tool server
+# Add to compose/ai/mcpo/config.json:
+# {
+#   "mcpServers": {
+#     "filesystem": {
+#       "command": "npx",
+#       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/docker"]
+#     }
+#   }
+# }
+```
+
+**Authorized Operations:**
+| Tool | Capability | Allowed Paths |
+|---|---|---|
+| `read_file` | Read any file | `/mnt/d/docker/**` |
+| `write_file` | Atomic file write | `/mnt/d/docker/**` |
+| `list_directory` | Recursive directory listing | `/mnt/d/docker/**` |
+| `search_files` | Pattern-based file search | `/mnt/d/docker/**` |
+| `move_file` | Rename/move files | `/mnt/d/docker/**` |
+| `get_file_info` | Metadata (size, permissions, timestamps) | `/mnt/d/docker/**` |
+
+**Forbidden:**
+- Any path outside `/mnt/d/docker/` or `~/docker/`
+- Writing to `/run/secrets/` directly (secrets managed via Docker Compose)
+- Modifying files owned by `root` without explicit permission escalation
+
+### 11.2 Docker DevSecOps MCP Server (`docker-mcp`)
+
+**Purpose:** Programmatic interaction with the Docker daemon socket for container lifecycle management, inspection, and log isolation.
+
+**Socket:** `/var/run/docker.sock` (Docker Engine 29.5.3)
+
+**Deployment (when needed):**
+```bash
+# Start Docker MCP server
+npx -y docker-mcp
+
+# Or via MCPO bridge — register in compose/ai/mcpo/config.json:
+# {
+#   "mcpServers": {
+#     "docker": {
+#       "command": "npx",
+#       "args": ["-y", "docker-mcp"]
+#     }
+#   }
+# }
+```
+
+**Authorized Operations:**
+
+| Tool | Capability | Constraints |
+|---|---|---|
+| `list_containers` | Query all container states | Read-only |
+| `inspect_container` | Fetch JSON inspection payloads | Read-only |
+| `container_logs` | Isolate specific log streams | Read-only, last 200 lines |
+| `restart_container` | Restart individual service | MUST NOT restart adjacent containers |
+| `start_container` | Start a stopped container | Profile-aware (use compose) |
+| `stop_container` | Stop a running container | Confirm with user first |
+| `list_images` | Query available images | Read-only |
+| `list_networks` | Query Docker networks | Read-only |
+| `list_volumes` | Query Docker volumes | Read-only |
+
+**Mandatory Constraints:**
+1. **Never restart adjacent running containers** — isolate operations to the single target service
+2. **Never remove containers or volumes** without explicit user confirmation
+3. **Never modify Docker daemon configuration** (`daemon.json`)
+4. **Never pull images** without user confirmation (bandwidth and trust implications)
+5. **All write operations** (restart, stop, start) MUST be logged to `agents/qwen/deployment-log.jsonl`
+
+### 11.3 MCPO Bridge Architecture
+
+MCPO (MCP-to-OpenAPI) translates MCP server tools into standard HTTP endpoints:
+
+```
+Agent → HTTP POST http://127.0.0.1:8000/<server>/<tool> → MCPO → MCP Server → Result
+```
+
+**Current MCPO container configuration:**
+```yaml
+mcpo:
+  image: ghcr.io/open-webui/mcpo:latest
+  command:
+    - "--host"
+    - "0.0.0.0"
+    - "--port"
+    - "8000"
+    - "--"
+    - "python3"
+    - "-c"
+    - "from mcp.server.fastmcp import FastMCP; mcp = FastMCP('aef3-tools'); mcp.run()"
+  ports:
+    - "127.0.0.1:${PORT_MCPO}:8000"
+  networks:
+    - ai-ml
+```
+
+**To register MCP servers, update the MCPO config** at `compose/ai/mcpo/config.json`:
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/docker"]
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "docker-mcp"]
+    }
+  }
+}
+```
+
+Then mount it into the MCPO container and restart:
+```yaml
+volumes:
+  - ./compose/ai/mcpo/config.json:/app/config.json:ro
+```
+
+### 11.4 Execution Safety Constraints
+
+#### Mandatory Lock Protocol
+
+When multiple sub-agents operate concurrently on shared resources, the following lock protocol is mandatory:
+
+**Trigger Conditions:**
+- Modifying shared network layers (`proxy`, `database`, `ai-ml`, `security`, `monitoring`)
+- Modifying database storage dependencies (postgres, redis)
+- Concurrent writes to the same `.env` or `docker-compose.yml` file
+- Any operation that affects service availability for other agents
+
+**Lock Procedure:**
+```bash
+# 1. Acquire lock — write to memory server or shared volume
+echo "{\"agent\":\"$(whoami)\",\"task\":\"<task_id>\",\"acquired\":\"$(date -u +%FT%TZ)\",\"resources\":[\"<resource>\"]}" > /mnt/d/docker/.locks/<task_id>.lock
+
+# 2. Verify lock acquisition
+cat /mnt/d/docker/.locks/<task_id>.lock
+
+# 3. Execute the task
+# ... task operations ...
+
+# 4. Validate task completion (run full validation pipeline — see §7)
+# ... validation ...
+
+# 5. Release lock ONLY after full validation passes
+rm /mnt/d/docker/.locks/<task_id>.lock
+```
+
+**Lock Directory:** `/mnt/d/docker/.locks/` (create if needed)
+
+**Lock File Format:** `<task_id>.lock` — JSON with agent ID, task reference, timestamp, and affected resources.
+
+**Conflict Resolution:**
+1. Check for existing locks: `ls /mnt/d/docker/.locks/`
+2. If a lock exists for a needed resource, WAIT — do not proceed
+3. Stale locks (>30 minutes old) may be cleared after verifying the owning agent is no longer running
+4. Never force-remove a lock without verification
+
+#### Operation Sequencing Rules
+
+| Operation Type | Requires Lock? | Validation Required? |
+|---|---|---|
+| Read-only container inspection | ❌ No | ❌ No |
+| Read-only file reads | ❌ No | ❌ No |
+| Container restart (single service) | ✅ Yes | ✅ Yes (§7 pipeline) |
+| `.env` modification | ✅ Yes | ✅ Yes (full stack restart + validation) |
+| `docker-compose.yml` modification | ✅ Yes | ✅ Yes (full stack restart + validation) |
+| Secret file modification | ✅ Yes | ✅ Yes (affected service restart + validation) |
+| Network configuration change | ✅ Yes | ✅ Yes (all affected services restart + validation) |
+| Database migration | ✅ Yes | ✅ Yes (dependent service restart + validation) |
+
+#### No-Go Constraints
+
+The following operations are **absolutely forbidden** without explicit human approval:
+
+1. **Never** modify Docker daemon configuration
+2. **Never** delete Docker networks, volumes, or images
+3. **Never** modify `/etc/hosts`, firewall rules, or system networking
+4. **Never** write secrets to log files or stdout
+5. **Never** expose services on `0.0.0.0` without completing the authentication-first workflow (see `feedback/no-external-access-before-auth.md`)
+6. **Never** bypass the lock protocol for concurrent operations
+7. **Never** modify files outside the `/mnt/d/docker/` boundary via MCP
+
+### 11.5 MCP Deployment Roadmap
+
+**Phase 1 (Current):** MCPO bridge running, no servers registered. All operations via shell commands.
+
+**Phase 2 (Next):** Register `mcp-server-filesystem` for Agent Zero code generation pipeline.
+- Enables LLM-generated code to be written to `projects/{name}/` directories via MCP
+- Prerequisite for: Hermes → Agent Zero live delegation
+
+**Phase 3:** Register `docker-mcp` for autonomous container lifecycle management.
+- Enables Agent Zero DevOps sub-agent to manage containers programmatically
+- Prerequisite for: Production VM commissioning, automated deployments
+
+**Phase 4:** Register additional MCP servers as needed:
+- `mcp-server-git` — Automated git operations (commit, push, PR)
+- `mcp-server-postgres` — Direct database queries and migrations
+- `mcp-server-github` — PR management, issue tracking

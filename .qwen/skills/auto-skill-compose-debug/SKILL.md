@@ -417,7 +417,56 @@ Setting `WEBUI_SECRET_KEY_FILE=./secrets/open_web_ui.txt` (a host-relative path)
 ### When `_FILE` is missing
 If a service generates a new random secret on every restart when `_FILE` is not set (e.g., OpenWebUI's session key), users get randomly logged out. **Always** uncomment and configure `_FILE` variables.
 
-## 18. Systematic security hardening procedure
+## 18. Uptime Kuma healthcheck gotcha
+
+Uptime Kuma's Docker image does **not** include `wget`. A healthcheck using `wget` will fail with `executable file not found in $PATH`, causing the container to report `unhealthy` even though the application is running fine (listening on port 3001).
+
+### Fix
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "-s", "http://localhost:3001/api/entry-page"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+```
+
+### Diagnosis
+```bash
+docker inspect uptime-kuma --format '{{json .State.Health}}' | python3 -m json.tool
+# Shows: "exec: \"wget\": executable file not found in $PATH"
+docker exec uptime-kuma which curl wget node
+# Shows: /usr/bin/curl (curl available, wget not)
+```
+
+### Lesson
+Always verify available tools with `docker exec <name> which curl wget` before writing healthchecks. Node.js-based images often have `curl` but not `wget`.
+
+## 19. Orphan container cleanup after force-recreate
+
+When `docker rm -f` is used to remove containers, and `docker compose up -d` recreates them, Docker may assign hash-prefixed names (e.g., `da166086cf42_mcpo`, `dee5b5c6261b_authentik-worker`) instead of clean service names.
+
+### Symptoms
+- `docker ps` shows containers like `da166086cf42_mcpo` instead of `mcpo`
+- `docker compose ps` lists both the orphan and the properly-named container
+- Services work but monitoring/alerting breaks on name mismatches
+
+### Fix
+```bash
+# Remove orphaned hash-prefixed containers
+docker rm -f da166086cf42_mcpo dee5b5c6261b_authentik-worker
+
+# Recreate with clean names
+docker compose --profile ai --profile security --profile monitoring up -d --remove-orphans
+```
+
+### Prevention
+Always use `--remove-orphans` when running `docker compose up -d` after any force-recreate:
+```bash
+docker compose up -d --remove-orphans
+```
+
+## 20. Systematic security hardening procedure
 
 When hardening a Docker Compose stack for local development, follow this ordered checklist:
 

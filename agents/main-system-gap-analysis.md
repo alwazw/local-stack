@@ -42,6 +42,29 @@
   - .gitignore hardened to exclude secrets
 * **Audit Record:** `agents/qwen/audit-trail-2026-06-15-infra-hardening.md`
 
+### [🟢] Deep Validation & SOP Documentation
+* **Objective:** Full-stack health check with deep log scrutiny and permanent SOP codification.
+* **Date:** 2026-06-15
+* **Commits:** `9f06128`, `50e13d1`
+* **Delivered:**
+  - 17/17 containers pass 4-step deep validation pipeline
+  - Stack Security and Operations Guide (`docs/stack-security-operations-guide.md`) — 661 lines
+  - Fixes: uptime-kuma healthcheck (wget→curl), Prometheus data dir permissions, orphan containers
+  - Untracked ollama model cache, expanded .gitignore for runtime volumes
+* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-deep-validation.md`
+
+### [🟢] MCP Tool Execution Layer Documentation
+* **Objective:** Codify authorized MCP server usage, boundary restrictions, and execution safety constraints.
+* **Date:** 2026-06-15
+* **Delivered:**
+  - SOP §11: MCP Tool Execution Layer (Automated Discovery)
+  - Filesystem MCP boundary rules (`/mnt/d/docker/` only)
+  - Docker MCP authorized operations and constraints
+  - MCPO bridge architecture and deployment instructions
+  - Mandatory lock protocol for concurrent sub-agent operations
+  - 4-phase MCP deployment roadmap (filesystem → docker → git/postgres)
+* **Current State:** MCPO bridge running, no MCP servers registered yet (Phase 1)
+
 ---
 
 ## 3. Completed Milestones (Achieved)
@@ -133,13 +156,15 @@
 ## 5. Immediate Next Steps (Ordered by Priority)
 
 1. 🔲 **Hermes Cron Delegation** — Configure Hermes to submit tasks and poll Agent Zero API for completion.
-2. 🔲 **MCP File Write Integration** — Wire DevAgent to write LLM-generated code to project directories via MCP filesystem.
-3. 🔲 **MCP Git Integration** — Auto-commit generated code via MCP git server after sandbox verification.
-4. 🔲 **Qdrant Memory Upgrade** — Swap JSON memory backend with Qdrant vector store for semantic search.
-5. 🔲 **API Authentication** — Add API key authentication to Agent Zero REST endpoints (required before external access).
-6. 🔲 **Production VM Commissioning** — Deploy SSH key to actual production VM and test real deployment.
-7. 🔲 **Observability Wiring** — Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring.
-8. 🔲 **CI/CD Pipeline Testing** — Alpha test automated project management components in parallel with production processes. Duplicated effort expected and accepted during validation phase.
+2. 🔲 **MCP Phase 2: Register Filesystem MCP** — Connect `mcp-server-filesystem` to MCPO bridge for Agent Zero code write persistence.
+3. 🔲 **MCP File Write Integration** — Wire DevAgent to write LLM-generated code to project directories via MCP filesystem.
+4. 🔲 **MCP Git Integration** — Auto-commit generated code via MCP git server after sandbox verification.
+5. 🔲 **MCP Phase 3: Register Docker MCP** — Connect `docker-mcp` for autonomous container lifecycle management.
+6. 🔲 **Qdrant Memory Upgrade** — Swap JSON memory backend with Qdrant vector store for semantic search.
+7. 🔲 **API Authentication** — Add API key authentication to Agent Zero REST endpoints (required before external access).
+8. 🔲 **Production VM Commissioning** — Deploy SSH key to actual production VM and test real deployment.
+9. 🔲 **Observability Wiring** — Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring.
+10. 🔲 **CI/CD Pipeline Testing** — Alpha test automated project management components in parallel with production processes. Duplicated effort expected and accepted during validation phase.
 
 ---
 
