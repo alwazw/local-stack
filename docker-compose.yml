@@ -548,7 +548,7 @@ services:
       - "homepage.href=http://${DOMAIN}:${PORT_UPTIME}"
       - "homepage.description=Uptime monitoring and status pages"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/entry-page"]
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:3001/api/entry-page"]
       interval: 30s
       timeout: 10s
       retries: 3

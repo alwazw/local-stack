@@ -200,9 +200,11 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | `agents/qwen/deployment-log.jsonl` | Append-only deployment event log |
 | `agents/qwen/decision-tree.md` | Human-readable decision log per contract |
 | `agents/qwen/audit-trail-2026-06-15-infra-hardening.md` | Audit trail for infrastructure hardening session |
+| `agents/qwen/audit-trail-2026-06-15-deep-validation.md` | Deep validation report: 17-container log scrutiny |
 | `agents/qwen/suggestions-and-upgrades.md` | Triage & upgrade tracking (20 issues, prioritized) |
 | `agents/main-system-gap-analysis.md` | This file — master index |
 | `agents/skills/hermes-multi-agent-architecture.md` | Architecture blueprint |
+| `docs/stack-security-operations-guide.md` | Stack Security and Operations Guide (SOP) |
 | `compose/ai/agent-zero/Dockerfile` | Custom LangGraph image build |
 | `compose/ai/agent-zero/docker-compose.yml` | Container orchestration config |
 | `compose/ai/agent-zero/entrypoint.sh` | Entrypoint wrapper (API server + Agent Zero) |
