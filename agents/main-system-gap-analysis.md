@@ -1,11 +1,11 @@
 # 🗺️ System State & Vision Gap Analysis
 
 ## 1. Executive Summary
-* **Current Phase:** Phase 5: Complete — All Integrations Live (LLM, MCP, SSH, Memory, API, HITL)
+* **Current Phase:** Phase 5: Complete — All Integrations Live (LLM, MCP, SSH, Memory, API, HITL). Infrastructure hardened — all ports locked, monitoring deployed, compose profiles active.
 * **Target Objective:** Establish fully autonomous, multi-project full-stack deployments managed by Agent Zero under Hermes' direction.
 * **Last Updated:** 2026-06-15
 * **Key Decision:** Framework selected — **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers.
-* **Milestone:** Full Phase 5 integration deployed and validated inside `agent-zero-langgraph:latest` container. **43/43 tests pass** (21 original + 22 Phase 5). REST API live on port 8081. All services reachable: LLM ✓, MCP ✓, SSH ✓, Memory ✓. Real task submitted and completed via API in 24ms.
+* **Milestone:** Full Phase 5 integration deployed and validated inside `agent-zero-langgraph:latest` container. **43/43 tests pass** (21 original + 22 Phase 5). REST API live on port 8081. All services reachable: LLM ✓, MCP ✓, SSH ✓, Memory ✓. Real task submitted and completed via API in 24ms. **Infrastructure hardened:** all 17 services running on `127.0.0.1`, monitoring stack live (Prometheus, Grafana, Uptime Kuma), compose profiles for selective startup.
 
 ---
 
@@ -24,6 +24,23 @@
 | **🔐 Human-in-the-Loop** | Board approval/veto of contracts before execution. | 🟢 Deployed | LangGraph `interrupt()` wired in `scope_validation_node`. REST API `POST /tasks/{id}/approve`. |
 
 > **Status Keys:** 🟢 Achieved / Deployed | 🟡 In Progress / Partial | 🔴 Pending / Blocker
+
+---
+
+### [🟢] Infrastructure Hardening & Security Remediation
+* **Objective:** Resolve all HIGH and MEDIUM priority security/reliability issues from the triage document.
+* **Date:** 2026-06-15
+* **Commit:** `af13998`
+* **Delivered:**
+  - All service ports locked to `127.0.0.1` (except traefik 80/443)
+  - WEBUI_SECRET_KEY_FILE wired via Docker secret
+  - MCPO healthcheck added
+  - Compose profiles: `ai`, `security`, `monitoring`
+  - Monitoring stack deployed: Prometheus, Grafana, Uptime Kuma
+  - PORT_OMNIROUTE typo fixed
+  - Homepage labels corrected for local dev
+  - .gitignore hardened to exclude secrets
+* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-infra-hardening.md`
 
 ---
 
@@ -119,13 +136,32 @@
 2. 🔲 **MCP File Write Integration** — Wire DevAgent to write LLM-generated code to project directories via MCP filesystem.
 3. 🔲 **MCP Git Integration** — Auto-commit generated code via MCP git server after sandbox verification.
 4. 🔲 **Qdrant Memory Upgrade** — Swap JSON memory backend with Qdrant vector store for semantic search.
-5. 🔲 **Production VM Commissioning** — Deploy SSH key to actual production VM and test real deployment.
-6. 🔲 **API Authentication** — Add API key authentication to the REST API endpoints.
-7. 🔲 **Observability** — Wire Prometheus metrics and Grafana dashboards for agent execution monitoring.
+5. 🔲 **API Authentication** — Add API key authentication to Agent Zero REST endpoints (required before external access).
+6. 🔲 **Production VM Commissioning** — Deploy SSH key to actual production VM and test real deployment.
+7. 🔲 **Observability Wiring** — Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring.
+8. 🔲 **CI/CD Pipeline Testing** — Alpha test automated project management components in parallel with production processes. Duplicated effort expected and accepted during validation phase.
 
 ---
 
-## 6. Architecture Decision Log
+## 6. Alpha Testing Horizon
+
+**Status:** Environment prepared for parallel validation.
+
+The infrastructure hardening milestone established the prerequisites for alpha testing:
+- Monitoring stack (Prometheus, Grafana, Uptime Kuma) provides observability for test validation
+- Compose profiles enable isolated testing of individual stacks
+- Port isolation ensures safe parallel execution without external exposure
+
+**Parallel execution note:** Alpha phase verification tests will run alongside production processes. This is intentional — duplicated effort ensures absolute system reliability. Longer execution reporting times are accepted during this validation phase.
+
+**First alpha targets:**
+- Hermes → Agent Zero delegation loop (cron-based task submission and polling)
+- MCP filesystem write persistence (LLM-generated code committed to project directories)
+- API authentication gate (protect endpoints before any remote access configuration)
+
+---
+
+## 7. Architecture Decision Log
 
 | Date | Decision | Options Considered | Rationale |
 | :--- | :--- | :--- | :--- |
@@ -140,10 +176,13 @@
 | 2026-06-15 | **FastAPI for REST API** | Flask, FastAPI, Express | Async-native, Pydantic integration, OpenAPI docs auto-generated |
 | 2026-06-15 | **JSON-based memory (upgradeable)** | SQLite, Qdrant, JSON files | Zero-dep for MVP; clean interface for Qdrant swap later |
 | 2026-06-15 | **Ed25519 SSH keys** | RSA, Ed25519, ECDSA | Modern, fast, smallest key size; standard for automated deployments |
+| 2026-06-15 | **127.0.0.1 for all local services** | 0.0.0.0, 127.0.0.1, per-service | Security-first default; only reverse proxy (traefik) needs public binding |
+| 2026-06-15 | **Docker Compose profiles** | Single compose file, profiles, separate files | Profiles give selective startup without file proliferation |
+| 2026-06-15 | **Docker secrets for WEBUI key** | Env var, file mount, Docker secret | Secret mount avoids plaintext in .env; survives container restarts |
 
 ---
 
-## 7. File Index
+## 8. File Index
 
 | Path | Purpose |
 | :--- | :--- |
@@ -160,7 +199,9 @@
 | `agents/qwen/agent-registry.json` | Active sub-agents and their roles |
 | `agents/qwen/deployment-log.jsonl` | Append-only deployment event log |
 | `agents/qwen/decision-tree.md` | Human-readable decision log per contract |
-| `agents/qwen/system-gap-analysis.md` | This file — master index |
+| `agents/qwen/audit-trail-2026-06-15-infra-hardening.md` | Audit trail for infrastructure hardening session |
+| `agents/qwen/suggestions-and-upgrades.md` | Triage & upgrade tracking (20 issues, prioritized) |
+| `agents/main-system-gap-analysis.md` | This file — master index |
 | `agents/skills/hermes-multi-agent-architecture.md` | Architecture blueprint |
 | `compose/ai/agent-zero/Dockerfile` | Custom LangGraph image build |
 | `compose/ai/agent-zero/docker-compose.yml` | Container orchestration config |
