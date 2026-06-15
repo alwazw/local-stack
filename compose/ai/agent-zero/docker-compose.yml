@@ -21,7 +21,9 @@ services:
       MEMORY_DIR: /app/data/memory
       MCP_BASE_URL: "http://mcpo:8000"
       SSH_KEY_PATH: "/secrets/ssh_deploy_key"
-      SSH_USER: "deploy"
+      SSH_USER: "${SSH_DEPLOY_USER:-deploy}"
+      SSH_DEPLOY_HOST: "${SSH_DEPLOY_HOST:-vm2}"
+      SSH_DEPLOY_PORT: "${SSH_DEPLOY_PORT:-22}"
       LITELLM_MASTER_KEY_FILE: "/secrets/litellm_key.txt"
     volumes:
       - ./data:/app/data

@@ -17,7 +17,7 @@
 | **🤝 Handshake Protocol** | Strict JSON contract validation before code is executed. | 🟢 Deployed | REST API `POST /api/v1/tasks` accepts contract JSON. Pydantic validation enforced. |
 | **🎛️ Agent Zero (CEO)** | Dynamic spawning of PM, Dev, and DevOps sub-agent layers via LangGraph. | 🟢 Deployed | Sub-agents wired to real LLM (LiteLLM), MCP tools (MCPO), and SSH deployment. |
 | **📦 Workspace Isolation** | Zero cross-contamination across active Docker/Node stacks. | 🟢 Achieved | `projects/` directory layout with `.project-manifest.json` template. |
-| **🌐 Production VM** | Automated, sandbox-verified deployments via DevOps agent. | 🟢 Deployed | SSH deployer with key-based auth, health-check retry, and auto-rollback. Ed25519 key generated. |
+| **🌐 Production VM** | Automated, sandbox-verified deployments via DevOps agent. | 🟢 Deployed | SSH deployer with key-based auth, health-check retry, and auto-rollback. Ed25519 key generated. **Target VM: vm2** (Ubuntu Server 26.04 WSL). SSH authentication configured for `alwazw@vm2`. |
 | **📊 Audit Trail** | Real-time execution graph, agent registry, and decision logs in `agents/qwen/`. | 🟢 Deployed | 4 structured audit artifacts written to volume-mounted `AUDIT_DIR`. |
 | **🔌 REST API** | HTTP interface for Hermes → Agent Zero delegation. | 🟢 Deployed | FastAPI on port 8081. Endpoints: tasks CRUD, approval, health, projects, memory. |
 | **🧠 Vector Memory** | Cross-project context retention for LLM injection. | 🟢 Deployed | `ProjectMemory` module with store/retrieve/search. API endpoints for project context. |
@@ -77,6 +77,17 @@
   - Added `pytest` to Dockerfile for in-container test suite execution
 * **Verification:** Test task submitted from Hermes, executed through 7-node graph in 15ms, 4 agents, both features passed. 43/43 tests pass.
 * **Audit Record:** `agents/qwen/audit-trail-2026-06-15-hermes-delegation.md`
+
+### [🟢] Production VM SSH Configuration — vm2
+* **Objective:** Configure real deployment target for SSH deployment pipeline.
+* **Date:** 2026-06-15
+* **Delivered:**
+  - Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`
+  - SSH remote authentication configured for `alwazw@vm2`
+  - `.env` updated with `SSH_DEPLOY_HOST=vm2`, `SSH_DEPLOY_USER=alwazw`, `SSH_DEPLOY_PORT=22`
+  - `docker-compose.yml` wired to pass SSH deployment variables to agent-zero container
+  - `SSHDeployer` module updated to read target host from `SSH_DEPLOY_HOST` env var (defaults to `vm2`)
+* **Next:** Test real SSH deployment from Agent Zero DevOps agent to vm2
 
 ---
 
@@ -175,7 +186,7 @@
 5. 🔲 **MCP Phase 3: Register Docker MCP** — Connect `docker-mcp` for autonomous container lifecycle management.
 6. 🔲 **Qdrant Memory Upgrade** — Swap JSON memory backend with Qdrant vector store for semantic search.
 7. 🔲 **API Authentication** — Add API key authentication to Agent Zero REST endpoints (required before external access).
-8. 🔲 **Production VM Commissioning** — Deploy SSH key to actual production VM and test real deployment.
+8. 🔲 **Real SSH Deployment Test** — Agent Zero DevOps agent deploys to `vm2` (Ubuntu Server 26.04 WSL) via SSH with key-based auth. VM configured, SSH auth ready.
 9. 🔲 **Observability Wiring** — Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring.
 10. 🔲 **CI/CD Pipeline Testing** — Alpha test automated project management components in parallel with production processes. Duplicated effort expected and accepted during validation phase.
 

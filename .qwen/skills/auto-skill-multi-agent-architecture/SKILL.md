@@ -265,11 +265,76 @@ Write status to: /shared/workspace/status.json
 ## Communication Loop
 
 ### Hermes → Agent Zero Delegation
-Two approaches:
-1. **Delegation toolset** — Hermes' built-in `delegation` tool can call `http://agent-zero:80` API
-2. **Custom skill** — Create SKILL.md that knows how to POST to Agent Zero:
+
+Three complementary mechanisms (all deployed and verified):
+
+#### 1. Custom Hermes Skill (teaches Hermes the API)
+Create a skill at `~/.hermes/skills/custom/<name>/SKILL.md` that documents the full API:
 ```bash
-curl -X POST http://agent-zero:80/api/task -d '{"spec": "...", "context": "..."}'
+# Create skill directory and deploy
+docker exec hermes-agent mkdir -p /home/hermes/.hermes/skills/custom/agent-zero-delegation
+docker cp /host/path/skill.md hermes-agent:/home/hermes/.hermes/skills/custom/agent-zero-delegation/SKILL.md
+
+# Verify skill is recognized
+docker exec hermes-agent hermes skills list | grep agent-zero
+```
+
+Skill structure follows Hermes conventions:
+```yaml
+---
+name: agent-zero-delegation
+description: "Delegate build tasks to Agent Zero via REST API"
+version: 1.0.0
+author: Qwen (Architecture)
+license: MIT
+platforms: [linux]
+metadata:
+  hermes:
+    tags: [agent-zero, delegation, multi-agent, build, orchestration, api]
+---
+```
+
+Include in the skill body: API reference (all endpoints with curl examples), delegation workflow (decompose → submit → monitor → approve → report), when to delegate vs handle directly, and a full example script.
+
+#### 2. Watchdog Script (zero-LLM-cost monitoring)
+Deploy a shell script to `~/.hermes/scripts/` that checks API health and reports task status:
+```bash
+docker cp /host/path/script.sh hermes-agent:/home/hermes/.hermes/scripts/script.sh
+docker exec hermes-agent chmod +x /home/hermes/.hermes/scripts/script.sh
+```
+
+Script pattern — use `curl` to check health, parse JSON with `python3 -c`, output a structured status report that can be consumed by either `--no-agent` cron or agent-mode cron.
+
+#### 3. Recurring Cron Job
+```bash
+# --accept-hooks is a GLOBAL flag (before 'cron'), not a subcommand flag
+docker exec hermes-agent hermes --accept-hooks cron create "*/5 * * * *" \
+  --name "agent-zero-watchdog" \
+  --script hermes_delegate.sh \
+  --no-agent \
+  --deliver local \
+  --repeat 999
+```
+
+**Key `hermes cron create` options:**
+- `schedule` — cron expression (`*/5 * * * *`) or relative (`5m`, `every 2h`)
+- `--script <name>` — script under `~/.hermes/scripts/` (basename only)
+- `--no-agent` — skip LLM, deliver script stdout directly (zero cost)
+- `--deliver local` — deliver script output to local Hermes logs (other options: `origin`, `telegram`, `discord`, `signal`)
+- `--repeat N` — repeat count (omit for one-shot, `999` for long-running)
+
+**Verification:**
+```bash
+docker exec hermes-agent hermes cron list    # Shows all scheduled jobs
+docker exec hermes-agent bash /home/hermes/.hermes/scripts/<script>.sh  # Manual test
+```
+
+#### 4. Direct API Call (for intelligent delegation from agent-mode)
+When Hermes needs to submit a task (not just monitor):
+```bash
+curl -s -X POST http://agent-zero:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"project":"my-project","features":["feature1"],"auto_approve":true,"simulate":false}'
 ```
 
 ### Agent Zero → Hermes Callback

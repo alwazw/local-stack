@@ -33,6 +33,7 @@ class SSHDeployer:
         self,
         ssh_key_path: str | None = None,
         ssh_user: str | None = None,
+        ssh_host: str | None = None,
         ssh_port: int = 22,
         health_endpoint: str = "/health",
         health_timeout_s: int = 60,
@@ -41,6 +42,7 @@ class SSHDeployer:
     ):
         self.ssh_key_path = ssh_key_path or os.environ.get("SSH_KEY_PATH", "/root/.ssh/id_ed25519")
         self.ssh_user = ssh_user or os.environ.get("SSH_USER", "deploy")
+        self.ssh_host = ssh_host or os.environ.get("SSH_DEPLOY_HOST", "vm2")
         self.ssh_port = ssh_port
         self.health_endpoint = health_endpoint
         self.health_timeout_s = health_timeout_s
@@ -83,8 +85,10 @@ class SSHDeployer:
                 stderr="SSH binary not found",
             )
 
-    def deploy(self, host: str, artifacts: list[dict[str, Any]], rollback_tag: str | None = None) -> DeployResult:
+    def deploy(self, host: str | None = None, artifacts: list[dict[str, Any]] | None = None, rollback_tag: str | None = None) -> DeployResult:
         """Deploy artifacts to a production VM."""
+        host = host or self.ssh_host
+        artifacts = artifacts or []
         start = time.perf_counter()
 
         # Step 1: Verify SSH connectivity
@@ -185,8 +189,10 @@ class SSHDeployer:
         """Check if SSH key exists."""
         return Path(self.ssh_key_path).exists()
 
-    def simulate_deploy(self, host: str, artifacts: list[dict[str, Any]]) -> DeployResult:
+    def simulate_deploy(self, host: str | None = None, artifacts: list[dict[str, Any]] | None = None) -> DeployResult:
         """Simulate a deployment without actually SSHing (for testing/demo)."""
+        host = host or self.ssh_host
+        artifacts = artifacts or []
         start = time.perf_counter()
         output_lines = []
         for artifact in artifacts:
