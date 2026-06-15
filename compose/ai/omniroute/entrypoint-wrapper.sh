@@ -1,6 +1,6 @@
 #!/bin/sh
-# Omniroute entrypoint wrapper — reads Redis password from Docker secret
-# and constructs the REDIS_URL before starting the service.
+# Omniroute entrypoint wrapper — reads Redis password from Docker secret,
+# runs the original permission check script, then starts the service.
 
 set -e
 
@@ -14,5 +14,12 @@ else
     exit 1
 fi
 
-# Execute the original command
+# Run the original permission check (from omniroute image entrypoint)
+if [ -x /tmp/check-permissions.sh ]; then
+    echo "[entrypoint] Running permission check" >&2
+    /tmp/check-permissions.sh >&2 || true
+fi
+
+# Execute the original command (node dev/run-standalone.mjs)
+echo "[entrypoint] Starting Omniroute" >&2
 exec "$@"

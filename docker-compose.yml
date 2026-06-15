@@ -198,6 +198,7 @@ services:
     restart: unless-stopped
     profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["/hermeswebui_init.bash"]
     depends_on:
       - hermes-agent
     environment:
@@ -243,6 +244,7 @@ services:
     restart: unless-stopped
     profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["node", "dev/run-standalone.mjs"]
     depends_on:
       - redis
     environment:
@@ -392,17 +394,37 @@ services:
       - "homepage.href=https://traefik.${DOMAIN}"
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: busybox:1.37
     container_name: cloudflared
     restart: unless-stopped
     profiles: [network]
-    entrypoint: ["/entrypoint-wrapper.sh"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        TOKEN=$$(cat /run/secrets/cf_tunnel_token)
+        exec /usr/local/bin/cloudflared tunnel --no-autoupdate run --token "$$TOKEN"
+    volumes:
+      - cloudflared_bin:/usr/local/bin
     networks:
       - proxy
     secrets:
       - cf_tunnel_token
+    depends_on:
+      cloudflared-installer:
+        condition: service_completed_successfully
+
+  cloudflared-installer:
+    image: alpine:latest
+    container_name: cloudflared-installer
+    profiles: [network]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache curl && \
+        curl -fSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /data/cloudflared && \
+        chmod +x /data/cloudflared
     volumes:
-      - ./compose/network/cloudflared/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - cloudflared_bin:/data
 
   # =====================
   # Security
@@ -828,7 +850,7 @@ services:
     networks:
       - monitoring
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      test: ["CMD-SHELL", "nc -z localhost 3100 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -1019,6 +1041,7 @@ volumes:
   loki_data:
   portainer_data:
   dockge_data:
+  cloudflared_bin:
 
 # =====================
 # Secrets — ALL secrets mounted as files, NEVER in .env or environment variables
