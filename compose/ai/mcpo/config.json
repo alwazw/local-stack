@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "python3",
+      "args": ["/app/filesystem_server.py"],
+      "env": {
+        "FILESYSTEM_WORKSPACE": "/workspace"
+      }
+    }
+  }
+}

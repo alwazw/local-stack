@@ -551,3 +551,69 @@ Any bind mount where the container writes files:
 - Add all runtime data directories to `.gitignore` immediately when adding new bind-mount services
 - Run `find compose/ -user root 2>/dev/null` periodically to check for unexpected root-owned files
 - Prefer Docker named volumes for data directories that don't need direct host access
+
+## 22. Root compose image mismatch with custom build
+
+When a root `docker-compose.yml` and a subdirectory compose file reference different images for the same service, the container starts successfully but custom modules are missing.
+
+### Symptoms
+- Container shows as `healthy` in `docker ps`
+- Custom API server or module doesn't start (no process found in `ps aux`)
+- `docker exec <name> find /app/<module>/ -type f` returns empty
+- Logs show base image services starting but no custom module output
+
+### Root cause
+Root compose references the base image (`frdel/agent-zero:latest`) while the subdirectory compose references the custom build (`agent-zero-langgraph:latest`). The root compose was never updated after the custom Dockerfile was created.
+
+### Diagnosis workflow
+```bash
+# 1. Check if custom module exists inside container
+docker exec <name> find /app/<module>/ -type f 2>/dev/null | head -5
+
+# 2. Compare with build context
+ls compose/<path>/<module>/
+
+# 3. Check which image the running container uses
+docker inspect <name> --format '{{.Config.Image}}'
+
+# 4. Check root compose vs subdirectory compose
+grep "image:" docker-compose.yml | grep <service>
+grep "image:" compose/<path>/docker-compose.yml | grep <service>
+```
+
+### Fix
+1. Update root compose to use the custom image
+2. Add any missing environment variables, volumes, and port mappings from the subdirectory compose
+3. Rebuild and recreate:
+```bash
+# Build from subdirectory context
+cd compose/<path>/ && docker compose build
+
+# Recreate from root
+cd /mnt/d/docker
+docker stop <name> && docker rm <name>
+docker compose --profile <profile> up -d <service>
+```
+
+### Rebuild cycle (when image needs updating after code changes)
+```bash
+# 1. Sync source files to build context
+cp agents/qwen/<module>/<file>.py compose/<path>/<module>/<file>.py
+
+# 2. Rebuild image (from build context directory)
+cd compose/<path>/ && docker compose build
+
+# 3. Recreate container (from root)
+cd /mnt/d/docker
+docker stop <name> && docker rm <name>
+docker compose --profile <profile> up -d <service>
+
+# 4. Wait for initialization, then verify
+sleep 15  # Allow entrypoint/supervisord to start
+curl -s http://127.0.0.1:<port>/health | python3 -m json.tool
+```
+
+### Prevention
+- When creating a custom Dockerfile in a subdirectory, always update the root compose's `image:` reference
+- Keep environment variables, volumes, and port mappings in sync between root and subdirectory compose files
+- Use the subdirectory compose file as the canonical reference for service-specific config
