@@ -27,6 +27,16 @@ compose/*/data/
 *.sqlite
 
 # ==========================================================
+# 3b. AI Model Data & Caches (Runtime artifacts, not source)
+# ==========================================================
+compose/ai/ollama/models/
+compose/ai/agent-zero/data/
+compose/ai/agent-zero/work_dir/
+compose/ai/openwebui/data/
+compose/security/vaultwarden/data/
+compose/network/traefik/data/
+
+# ==========================================================
 # 4. System Logs & Cache
 # ==========================================================
 npm-debug.log*
