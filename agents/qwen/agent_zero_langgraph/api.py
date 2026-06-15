@@ -222,11 +222,21 @@ def list_tasks():
     with _task_lock:
         tasks = []
         for task_id, task in _tasks.items():
+            state = task.get("final_state", {})
+            agent_count = 0
+            if state.get("pm_manifest"):
+                agent_count += 1
+            agent_count += len(state.get("dev_results", []))
+            if state.get("devops_manifest"):
+                agent_count += 1
             tasks.append({
                 "task_id": task_id,
                 "project": task["project"],
                 "status": task["status"],
+                "final_status": state.get("final_status", task["status"]),
                 "created_at": task["created_at"],
+                "completed_at": task.get("completed_at"),
+                "agent_count": agent_count,
             })
     return {"tasks": tasks, "total": len(tasks)}
 

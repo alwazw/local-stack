@@ -1,8 +1,8 @@
-# Decision Tree — taskflow
+# Decision Tree — test-project
 
-**Task ID:** `89f47618`
-**Contract ID:** `64551aa5-7e93-46e0-a353-90b4289e4c4b`
-**Executed:** 2026-06-14T22:31:15.631911+00:00
+**Task ID:** `14272900`
+**Contract ID:** `69dcdbaf-e02d-4237-aea0-d9d2e45b7bee`
+**Executed:** 2026-06-15T11:17:25.793782+00:00
 **Final Status:** completed
 
 ---
@@ -16,34 +16,29 @@ intake → scope_validation → pm_delegation → dev_pool → result_aggregatio
 ## Scope
 
 ### Features
-- Kanban board with drag-and-drop
-- REST API with auth middleware
-- Docker Compose dev environment
+- Feature A
+- Feature B
 
 ### Boundaries
-- Node.js + React + Tailwind only
-- PostgreSQL for persistence
-- Single production VM deployment
+- TypeScript only
 
 ### Exclusions
-- No mobile app in this sprint
-- No real-time WebSocket updates
+- No mobile
 
 ## Sub-Agent Results
 
 | Agent | Role | Status | Details |
 |-------|------|--------|---------|
-| PM | project_manager | completed | 3 features |
-| `7f63634d` | developer | completed | specialty=fullstack, builds: 3/3 passed |
-| `2b1ec790` | developer | completed | specialty=fullstack, builds: 3/3 passed |
-| `63cf546f` | developer | completed | specialty=fullstack, builds: 3/3 passed |
-| DevOps | devops | completed | deployed to production-vm, 3 artifacts |
+| PM | project_manager | completed | 2 features |
+| `99b76930` | developer | completed | specialty=fullstack, builds: 2/2 passed |
+| `46b5bc43` | developer | completed | specialty=fullstack, builds: 2/2 passed |
+| DevOps | devops | completed | deployed to production-vm, 2 artifacts |
 
 ## Deploy Manifest
 ```json
 {
-  "project": "taskflow",
-  "contract_id": "64551aa5-7e93-46e0-a353-90b4289e4c4b",
+  "project": "test-project",
+  "contract_id": "69dcdbaf-e02d-4237-aea0-d9d2e45b7bee",
   "deploy_target": "production-vm",
   "auth_method": "ssh_key",
   "rollback_timeout_s": 60,
@@ -54,15 +49,11 @@ intake → scope_validation → pm_delegation → dev_pool → result_aggregatio
   },
   "artifacts": [
     {
-      "feature": "Kanban board with drag-and-drop",
+      "feature": "Feature A",
       "build_status": "passed"
     },
     {
-      "feature": "REST API with auth middleware",
-      "build_status": "passed"
-    },
-    {
-      "feature": "Docker Compose dev environment",
+      "feature": "Feature B",
       "build_status": "passed"
     }
   ],

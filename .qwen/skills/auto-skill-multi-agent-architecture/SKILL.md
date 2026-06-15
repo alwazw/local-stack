@@ -161,6 +161,72 @@ Deploy MCP servers on the `ai-ml` network for deterministic tool access:
 | PostgreSQL | DB access | Community server |
 | Docker | Container mgmt | Community server |
 
+### MCP Tool Execution Safety
+
+When consuming MCP servers, agents MUST follow these constraints:
+
+#### Filesystem MCP Boundaries
+- File modifications restricted to `/mnt/d/docker/` and `~/docker/` ONLY
+- Never write to `/run/secrets/` directly (managed via Docker Compose secrets)
+- Never modify files owned by `root` without explicit escalation
+
+#### Docker MCP Constraints
+- Never restart adjacent running containers — isolate to single target
+- Never remove containers/volumes without user confirmation
+- Never modify Docker daemon configuration
+- Never pull images without user confirmation
+- All write operations logged to `agents/qwen/deployment-log.jsonl`
+
+#### Lock Protocol for Concurrent Operations
+When multiple sub-agents operate on shared resources (networks, databases, compose files):
+
+```bash
+# 1. Acquire lock
+echo '{"agent":"qwen","task":"<id>","acquired":"<ISO8601>","resources":["<resource>"]}' \
+  > /mnt/d/docker/.locks/<task_id>.lock
+
+# 2. Execute task
+# 3. Run full validation pipeline
+# 4. Release lock ONLY after validation passes
+rm /mnt/d/docker/.locks/<task_id>.lock
+```
+
+**Lock triggers:** Network changes, DB modifications, concurrent file writes, compose file edits
+**No lock needed:** Read-only container inspection, file reads
+
+#### No-Go Constraints (require human approval)
+1. Modify Docker daemon configuration
+2. Delete networks, volumes, or images
+3. Modify `/etc/hosts`, firewall rules, system networking
+4. Write secrets to logs or stdout
+5. Expose services on `0.0.0.0` without authentication-first workflow
+6. Bypass lock protocol for concurrent operations
+7. Modify files outside `/mnt/d/docker/` via MCP
+
+#### MCPO Bridge Registration
+Register MCP servers in `compose/ai/mcpo/config.json`:
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/mnt/d/docker"]
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "docker-mcp"]
+    }
+  }
+}
+```
+Mount into MCPO container: `./compose/ai/mcpo/config.json:/app/config.json:ro`
+
+#### MCP Deployment Phases
+1. **Phase 1** (current): MCPO bridge running, no servers registered
+2. **Phase 2**: Register `mcp-server-filesystem` for code write persistence
+3. **Phase 3**: Register `docker-mcp` for container lifecycle management
+4. **Phase 4**: Register git/postgres/github MCP servers
+
 ### Agent Zero Instruments Bridge
 Agent Zero has `/a0/instruments/` for tool definitions. Create MCP bridge instruments:
 ```python

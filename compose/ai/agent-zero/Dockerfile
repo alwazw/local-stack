@@ -13,7 +13,8 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
     httpx>=0.27.0 \
     fastapi>=0.115.0 \
     uvicorn[standard]>=0.32.0 \
-    paramiko>=3.5.0
+    paramiko>=3.5.0 \
+    pytest>=8.0.0
 
 # Copy Agent Zero LangGraph orchestration module
 COPY agent_zero_langgraph/ /app/agent_zero_langgraph/

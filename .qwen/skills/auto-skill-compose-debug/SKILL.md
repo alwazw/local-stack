@@ -503,3 +503,51 @@ docker compose ps --format "{{.Name}}: {{.Ports}}" | grep -v "127.0.0.1" | grep 
 # Check secret file permissions:
 ls -la secrets/ | grep -v "^total" | awk '{print $1, $NF}'
 ```
+
+## 21. Container-owned files blocking git operations (WSL2)
+
+When Docker containers write files to bind-mounted directories, those files are owned by `root:root` (or the container's user). This causes `git add .` to fail with `Permission denied`.
+
+### Symptoms
+```
+error: open("compose/ai/ollama/models/cache/model-recommendations.json"): Permission denied
+error: unable to index file 'compose/ai/ollama/models/cache/model-recommendations.json'
+fatal: updating files failed
+```
+
+### Root cause
+The ollama container (running as root) writes cache files to a bind mount. The host user (`alwazw`) cannot read those files, so git cannot hash them.
+
+### Fix (three-part)
+
+**1. Fix ownership:**
+```bash
+sudo chown -R alwazw:alwazw compose/ai/ollama/models/
+```
+
+**2. Untrack from git:**
+```bash
+git rm --cached compose/ai/ollama/models/cache/model-recommendations.json
+```
+
+**3. Add to .gitignore:**
+```gitignore
+# 3b. AI Model Data & Caches (Runtime artifacts, not source)
+compose/ai/ollama/models/
+compose/ai/agent-zero/data/
+compose/ai/agent-zero/work_dir/
+compose/ai/openwebui/data/
+compose/security/vaultwarden/data/
+compose/network/traefik/data/
+```
+
+### Common affected directories
+Any bind mount where the container writes files:
+- `compose/ai/ollama/models/` — model downloads, cache files (root:root)
+- `compose/monitoring/prometheus/data/` — TSDB, queries.active (nobody:65534)
+- `compose/data/postgres/data/` — database files (postgres:999)
+
+### Prevention
+- Add all runtime data directories to `.gitignore` immediately when adding new bind-mount services
+- Run `find compose/ -user root 2>/dev/null` periodically to check for unexpected root-owned files
+- Prefer Docker named volumes for data directories that don't need direct host access

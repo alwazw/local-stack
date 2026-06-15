@@ -8,7 +8,7 @@ services:
   # AI / ML
   # =====================
   agent-zero:
-    image: frdel/agent-zero:latest
+    image: agent-zero-langgraph:latest
     container_name: agent-zero
     restart: unless-stopped
     env_file: [.env]
@@ -20,11 +20,22 @@ services:
       QDRANT_HOST: "qdrant"
       QDRANT_PORT: "${PORT_QDRANT}"
       WORK_DIR: /app/work_dir
+      PYTHONPATH: /app
+      AUDIT_DIR: /app/audit
+      MEMORY_DIR: /app/data/memory
+      MCP_BASE_URL: "http://mcpo:8000"
+      SSH_KEY_PATH: "/secrets/ssh_deploy_key"
+      SSH_USER: "deploy"
+      LITELLM_MASTER_KEY_FILE: "/secrets/litellm_key.txt"
     volumes:
       - ./compose/ai/agent-zero/data:/app/data
       - ./compose/ai/agent-zero/work_dir:/app/work_dir
+      - ./projects:/app/projects
+      - ./agents/qwen:/app/audit
+      - ./secrets:/secrets:ro
     ports:
       - "127.0.0.1:${PORT_AGENTZERO}:80"
+      - "127.0.0.1:${PORT_AGENTZERO_API:-8081}:8080"
     networks:
       - ai-ml
     labels:

@@ -5,7 +5,7 @@
 * **Target Objective:** Establish fully autonomous, multi-project full-stack deployments managed by Agent Zero under Hermes' direction.
 * **Last Updated:** 2026-06-15
 * **Key Decision:** Framework selected — **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers.
-* **Milestone:** Full Phase 5 integration deployed and validated inside `agent-zero-langgraph:latest` container. **43/43 tests pass** (21 original + 22 Phase 5). REST API live on port 8081. All services reachable: LLM ✓, MCP ✓, SSH ✓, Memory ✓. Real task submitted and completed via API in 24ms. **Infrastructure hardened:** all 17 services running on `127.0.0.1`, monitoring stack live (Prometheus, Grafana, Uptime Kuma), compose profiles for selective startup.
+* **Milestone:** Hermes → Agent Zero delegation pipeline live. Watchdog cron polls every 5 minutes. Custom skill teaches Hermes the full API. Task submitted and completed through 7-node graph in 15ms with 4 agents. **43/43 tests pass**. REST API live on port 8081. All services reachable: LLM ✓, MCP ✓, SSH ✓, Memory ✓. **Infrastructure hardened:** all 17 services running on `127.0.0.1`, monitoring stack live (Prometheus, Grafana, Uptime Kuma), compose profiles for selective startup.
 
 ---
 
@@ -64,6 +64,19 @@
   - Mandatory lock protocol for concurrent sub-agent operations
   - 4-phase MCP deployment roadmap (filesystem → docker → git/postgres)
 * **Current State:** MCPO bridge running, no MCP servers registered yet (Phase 1)
+
+### [🟢] Hermes → Agent Zero Delegation Pipeline
+* **Objective:** Enable Hermes to submit tasks to Agent Zero and monitor execution.
+* **Date:** 2026-06-15
+* **Delivered:**
+  - Fixed main `docker-compose.yml` to use `agent-zero-langgraph:latest` image (was using base `frdel/agent-zero:latest`)
+  - Enhanced `GET /api/v1/tasks` to return `final_status`, `completed_at`, `agent_count`
+  - Watchdog script (`compose/ai/agent-zero/scripts/hermes_delegate.sh`) — polls API health and task list
+  - Hermes custom skill (`agent-zero-delegation`) — full API reference and delegation workflow
+  - Recurring cron job (`agent-zero-watchdog`) — every 5 minutes, `--no-agent` mode
+  - Added `pytest` to Dockerfile for in-container test suite execution
+* **Verification:** Test task submitted from Hermes, executed through 7-node graph in 15ms, 4 agents, both features passed. 43/43 tests pass.
+* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-hermes-delegation.md`
 
 ---
 
@@ -133,11 +146,11 @@
 
 ## 4. Current Sprint (In Progress)
 
-### [🟡] Hermes → Agent Zero Live Delegation
-* **Owner:** Hermes Agent
+### [🟢] Hermes → Agent Zero Live Delegation ✅
+* **Owner:** Qwen (Architecture)
 * **Objective:** Hermes submits tasks to Agent Zero via `POST http://agent-zero:8080/api/v1/tasks` and polls for completion.
-* **Status:** API endpoint live and tested. Hermes cron integration pending.
-* **Next:** Configure Hermes cron to poll `GET /api/v1/tasks/{id}` for status updates.
+* **Status:** Complete. Watchdog cron (`*/5 * * * *`) monitors Agent Zero health and task status. Custom skill teaches Hermes the full API. Test task submitted and completed through 7-node graph in 15ms.
+* **Delivered:** Polling script, custom skill, recurring cron job, enhanced task list API.
 
 ### [🟡] Real Code Generation Pipeline
 * **Owner:** Qwen (Architecture)
@@ -155,7 +168,7 @@
 
 ## 5. Immediate Next Steps (Ordered by Priority)
 
-1. 🔲 **Hermes Cron Delegation** — Configure Hermes to submit tasks and poll Agent Zero API for completion.
+1. ✅ **Hermes Cron Delegation** — Complete. Watchdog cron + delegation skill deployed.
 2. 🔲 **MCP Phase 2: Register Filesystem MCP** — Connect `mcp-server-filesystem` to MCPO bridge for Agent Zero code write persistence.
 3. 🔲 **MCP File Write Integration** — Wire DevAgent to write LLM-generated code to project directories via MCP filesystem.
 4. 🔲 **MCP Git Integration** — Auto-commit generated code via MCP git server after sandbox verification.
@@ -204,6 +217,8 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | 2026-06-15 | **127.0.0.1 for all local services** | 0.0.0.0, 127.0.0.1, per-service | Security-first default; only reverse proxy (traefik) needs public binding |
 | 2026-06-15 | **Docker Compose profiles** | Single compose file, profiles, separate files | Profiles give selective startup without file proliferation |
 | 2026-06-15 | **Docker secrets for WEBUI key** | Env var, file mount, Docker secret | Secret mount avoids plaintext in .env; survives container restarts |
+| 2026-06-15 | **Watchdog cron `--no-agent`** | Full agent cron, no-agent script | Zero LLM cost for monitoring; agent mode reserved for intelligent delegation |
+| 2026-06-15 | **Hermes custom skill for delegation** | MCP tool, webhook, REST API skill | Skill approach teaches Hermes the full API; reusable across sessions |
 
 ---
 
@@ -226,6 +241,7 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | `agents/qwen/decision-tree.md` | Human-readable decision log per contract |
 | `agents/qwen/audit-trail-2026-06-15-infra-hardening.md` | Audit trail for infrastructure hardening session |
 | `agents/qwen/audit-trail-2026-06-15-deep-validation.md` | Deep validation report: 17-container log scrutiny |
+| `agents/qwen/audit-trail-2026-06-15-hermes-delegation.md` | Audit trail for Hermes → Agent Zero delegation pipeline |
 | `agents/qwen/suggestions-and-upgrades.md` | Triage & upgrade tracking (20 issues, prioritized) |
 | `agents/main-system-gap-analysis.md` | This file — master index |
 | `agents/skills/hermes-multi-agent-architecture.md` | Architecture blueprint |
@@ -233,6 +249,8 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | `compose/ai/agent-zero/Dockerfile` | Custom LangGraph image build |
 | `compose/ai/agent-zero/docker-compose.yml` | Container orchestration config |
 | `compose/ai/agent-zero/entrypoint.sh` | Entrypoint wrapper (API server + Agent Zero) |
+| `compose/ai/agent-zero/scripts/hermes_delegate.sh` | Hermes watchdog polling script |
+| `compose/ai/agent-zero/scripts/agent-zero-skill.md` | Delegation skill source (deployed to Hermes) |
 | `projects/template/` | Project directory template |
 | `secrets/ssh_deploy_key` | Ed25519 SSH deploy key |
 | `secrets/litellm_key.txt` | LiteLLM master API key |

@@ -1,42 +1,35 @@
 {
-  "task_id": "89f47618",
+  "task_id": "14272900",
   "active_agents": [
     {
-      "agent_id": "taskflow",
+      "agent_id": "test-project",
       "role": "project_manager",
       "status": "completed",
-      "project": "taskflow",
-      "output_summary": "3 features"
+      "project": "test-project",
+      "output_summary": "2 features"
     },
     {
-      "agent_id": "7f63634d",
+      "agent_id": "99b76930",
       "role": "developer",
       "status": "completed",
-      "project": "taskflow",
-      "output_summary": "specialty=fullstack, builds: 3/3 passed"
+      "project": "test-project",
+      "output_summary": "specialty=fullstack, builds: 2/2 passed"
     },
     {
-      "agent_id": "2b1ec790",
+      "agent_id": "46b5bc43",
       "role": "developer",
       "status": "completed",
-      "project": "taskflow",
-      "output_summary": "specialty=fullstack, builds: 3/3 passed"
-    },
-    {
-      "agent_id": "63cf546f",
-      "role": "developer",
-      "status": "completed",
-      "project": "taskflow",
-      "output_summary": "specialty=fullstack, builds: 3/3 passed"
+      "project": "test-project",
+      "output_summary": "specialty=fullstack, builds: 2/2 passed"
     },
     {
       "agent_id": "devops",
       "role": "devops",
       "status": "completed",
-      "project": "taskflow",
-      "output_summary": "deployed to production-vm, 3 artifacts"
+      "project": "test-project",
+      "output_summary": "deployed to production-vm, 2 artifacts"
     }
   ],
-  "total_spawned": 5,
-  "timestamp": "2026-06-14T22:31:15.621344+00:00"
+  "total_spawned": 4,
+  "timestamp": "2026-06-15T11:17:25.791478+00:00"
 }
