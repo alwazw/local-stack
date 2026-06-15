@@ -6,18 +6,20 @@ services:
     env_file:
       - ../../../.env
     environment:
-      PORT: "${PORT_OMNIRUTE}"
+      PORT: "${PORT_OMNIROUTE}"
       REQUIRE_API_KEY: "false"
       DATA_DIR: /app/data
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
     volumes:
       - omniroute_data:/app/data
     ports:
-      - "${PORT_OMNIRUTE}:20128"
+      - "${PORT_OMNIROUTE}:20128"
     networks:
       - proxy
       - ai-ml
+      - database
     labels:
-      - "homepage.group=Productivity"
+      - "homepage.group=AI Core"
       - "homepage.name=Omniroute"
       - "homepage.icon=omniroute.png"
       - "homepage.href=https://omniroute.${DOMAIN}"
@@ -41,4 +43,6 @@ networks:
   proxy:
     external: true
   ai-ml:
+    external: true
+  database:
     external: true

@@ -12,6 +12,7 @@ services:
     container_name: agent-zero
     restart: unless-stopped
     env_file: [.env]
+    profiles: [ai]
     environment:
       LLM_PROVIDER: "openai"
       LLM_BASE_URL: "http://litellm:4000"
@@ -23,7 +24,7 @@ services:
       - ./compose/ai/agent-zero/data:/app/data
       - ./compose/ai/agent-zero/work_dir:/app/work_dir
     ports:
-      - "0.0.0.0:${PORT_AGENTZERO}:80"
+      - "127.0.0.1:${PORT_AGENTZERO}:80"
     networks:
       - ai-ml
     labels:
@@ -44,13 +45,14 @@ services:
     container_name: litellm
     restart: unless-stopped
     env_file: [.env]
+    profiles: [ai]
     environment:
       LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY_FILE}"
       LITELLM_MODEL: "ollama/llama3.1:8b"
       OLLAMA_API_BASE: "http://ollama:11434"
       DEBUG: 1
     ports:
-      - "${PORT_LITELLM}:4000"
+      - "127.0.0.1:${PORT_LITELLM}:4000"
     volumes:
       - ./compose/ai/litellm/config:/app/config
     networks:
@@ -73,6 +75,7 @@ services:
     image: ghcr.io/open-webui/mcpo:latest
     container_name: mcpo
     restart: unless-stopped
+    profiles: [ai]
     command:
       - "--host"
       - "0.0.0.0"
@@ -83,7 +86,7 @@ services:
       - "-c"
       - "from mcp.server.fastmcp import FastMCP; mcp = FastMCP('aef3-tools'); mcp.run()"
     ports:
-      - "${PORT_MCPO}:8000"
+      - "127.0.0.1:${PORT_MCPO}:8000"
     networks:
       - ai-ml
     labels:
@@ -92,16 +95,23 @@ services:
       - "homepage.icon=mcpo.png"
       - "homepage.href=http://${DOMAIN}:${PORT_MCPO}/docs"
       - "homepage.description=MCP-to-OpenAPI Bridge"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
     env_file: [.env]
+    profiles: [ai]
     volumes:
       - ./compose/ai/ollama/models:/root/.ollama
     ports:
-      - "0.0.0.0:${PORT_OLLAMA}:11434"
+      - "127.0.0.1:${PORT_OLLAMA}:11434"
     networks:
       - ai-ml
     healthcheck:
@@ -118,11 +128,16 @@ services:
     container_name: openwebui
     restart: unless-stopped
     env_file: [.env]
+    profiles: [ai]
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       WEBUI_SECRET_KEY_FILE: "${WEBUI_SECRET_KEY_FILE}"
+    ports:
+      - "127.0.0.1:${PORT_OPENWEBUI}:8080"
     volumes:
       - ./compose/ai/openwebui/data:/app/backend/data
+    secrets:
+      - webui_secret_key
     networks:
       - proxy
       - ai-ml
@@ -134,6 +149,115 @@ services:
       - "homepage.group=AI"
       - "homepage.name=OpenWebUI"
       - "homepage.href=https://chat.${DOMAIN}"
+
+  hermes-agent:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-agent
+    command: gateway run
+    restart: unless-stopped
+    env_file: [.env]
+    profiles: [ai]
+    stdin_open: true
+    tty: true
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+      GATEWAY_ALLOW_ALL_USERS: "true"
+      HERMES_DASHBOARD_INSECURE: "1"
+    volumes:
+      - hermes_home:/home/hermes/.hermes
+      - hermes_agent_src:/opt/hermes
+    networks:
+      - ai-ml
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  hermes:
+    image: ghcr.io/nesquena/hermes-webui:latest
+    container_name: hermes
+    restart: unless-stopped
+    env_file: [.env]
+    profiles: [ai]
+    depends_on:
+      - hermes-agent
+    environment:
+      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD}
+      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
+      HERMES_WEBUI_HOST: "0.0.0.0"
+      HERMES_WEBUI_PORT: "8787"
+      WANTED_UID: "1000"
+      WANTED_GID: "1000"
+      HERMES_AGENT_HOST: "hermes-agent"
+    volumes:
+      - hermes_home:/home/hermeswebui/.hermes
+      - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
+      - hermes_workspace:/workspace
+    ports:
+      - "127.0.0.1:${PORT_HERMES}:8787"
+    networks:
+      - proxy
+      - ai-ml
+    labels:
+      - "homepage.group=AI Core"
+      - "homepage.name=Hermes"
+      - "homepage.icon=hermes.png"
+      - "homepage.href=http://localhost:${PORT_HERMES}"
+      - "homepage.description=Self-hosted AI Agent with Memory & Tools"
+      - "traefik.enable=true"
+      - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
+      - "traefik.http.routers.hermes.entrypoints=websecure"
+      - "traefik.http.routers.hermes.tls.certresolver=cloudflare"
+      - "traefik.http.services.hermes.loadbalancer.server.port=8787"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: omniroute
+    restart: unless-stopped
+    env_file: [.env]
+    profiles: [ai]
+    depends_on:
+      - redis
+    environment:
+      PORT: "${PORT_OMNIROUTE}"
+      REQUIRE_API_KEY: "false"
+      DATA_DIR: /app/data
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+    volumes:
+      - omniroute_data:/app/data
+    ports:
+      - "127.0.0.1:${PORT_OMNIROUTE}:20128"
+    networks:
+      - proxy
+      - ai-ml
+      - database
+    labels:
+      - "homepage.group=AI Core"
+      - "homepage.name=Omniroute"
+      - "homepage.icon=omniroute.png"
+      - "homepage.href=http://localhost:${PORT_OMNIROUTE}"
+      - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
+      - "traefik.enable=true"
+      - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
+      - "traefik.http.routers.omniroute.entrypoints=websecure"
+      - "traefik.http.routers.omniroute.tls.certresolver=cloudflare"
+      - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/20128"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # =====================
   # Data
@@ -151,7 +275,7 @@ services:
       - ./compose/data/postgres/data:/var/lib/postgresql/data
       - ./compose/data/postgres/init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${PORT_POSTGRES}:5432"
+      - "127.0.0.1:${PORT_POSTGRES}:5432"
     networks:
       - database
     healthcheck:
@@ -177,6 +301,8 @@ services:
       - ${REDIS_PASSWORD}
       - --appendonly
       - "yes"
+    ports:
+      - "127.0.0.1:${PORT_REDIS}:6379"
     volumes:
       - ./compose/data/redis/data:/data
     networks:
@@ -214,9 +340,9 @@ services:
       - --log.level=INFO
       - --accesslog=true
     ports:
-      - "${PORT_TRAEFIK_HTTP}:80"
-      - "${PORT_TRAEFIK_HTTPS}:443"
-      - "8080:8080"
+      - "0.0.0.0:${PORT_TRAEFIK_HTTP}:80"
+      - "0.0.0.0:${PORT_TRAEFIK_HTTPS}:443"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./compose/network/traefik/data:/data
@@ -242,107 +368,6 @@ services:
       - "homepage.href=https://traefik.${DOMAIN}"
 
   # =====================
-  # Productivity
-  # =====================
-  hermes-agent:
-    image: nousresearch/hermes-agent:latest
-    container_name: hermes-agent
-    command: gateway run
-    restart: unless-stopped
-    env_file: [.env]
-    environment:
-      HERMES_HOME: /home/hermes/.hermes
-      HERMES_UID: "1000"
-      HERMES_GID: "1000"
-      GATEWAY_ALLOW_ALL_USERS: "true"
-    volumes:
-      - hermes_home:/home/hermes/.hermes
-      - hermes_agent_src:/opt/hermes
-    networks:
-      - ai-ml
-    healthcheck:
-      test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  hermes:
-    image: ghcr.io/nesquena/hermes-webui:latest
-    container_name: hermes
-    restart: unless-stopped
-    env_file: [.env]
-    depends_on:
-      - hermes-agent
-    environment:
-      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD}
-      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
-      HERMES_WEBUI_HOST: "0.0.0.0"
-      HERMES_WEBUI_PORT: "8787"
-      WANTED_UID: "1000"
-      WANTED_GID: "1000"
-    volumes:
-      - hermes_home:/home/hermeswebui/.hermes
-      - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
-      - hermes_workspace:/workspace
-    ports:
-      - "${PORT_HERMES}:8787"
-    networks:
-      - proxy
-      - ai-ml
-    labels:
-      - "homepage.group=Productivity"
-      - "homepage.name=Hermes"
-      - "homepage.icon=hermes.png"
-      - "homepage.href=https://hermes.${DOMAIN}"
-      - "homepage.description=Self-hosted AI Agent with Memory & Tools"
-      - "traefik.enable=true"
-      - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
-      - "traefik.http.routers.hermes.entrypoints=websecure"
-      - "traefik.http.routers.hermes.tls.certresolver=cloudflare"
-      - "traefik.http.services.hermes.loadbalancer.server.port=8787"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  omniroute:
-    image: diegosouzapw/omniroute:latest
-    container_name: omniroute
-    restart: unless-stopped
-    env_file: [.env]
-    environment:
-      PORT: "${PORT_OMNIRUTE}"
-      REQUIRE_API_KEY: "false"
-      DATA_DIR: /app/data
-    volumes:
-      - omniroute_data:/app/data
-    ports:
-      - "${PORT_OMNIRUTE}:20128"
-    networks:
-      - proxy
-      - ai-ml
-    labels:
-      - "homepage.group=Productivity"
-      - "homepage.name=Omniroute"
-      - "homepage.icon=omniroute.png"
-      - "homepage.href=https://omniroute.${DOMAIN}"
-      - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
-      - "traefik.enable=true"
-      - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
-      - "traefik.http.routers.omniroute.entrypoints=websecure"
-      - "traefik.http.routers.omniroute.tls.certresolver=cloudflare"
-      - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/20128"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # =====================
   # Security
   # =====================
   authentik-server:
@@ -350,6 +375,7 @@ services:
     container_name: authentik-server
     restart: unless-stopped
     env_file: [.env]
+    profiles: [security]
     command: server
     environment:
       AUTHENTIK_REDIS__HOST: redis
@@ -359,6 +385,8 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+    ports:
+      - "127.0.0.1:${PORT_AUTHENTIK}:9000"
     volumes:
       - authentik_media:/media
       - ./compose/security/authentik/custom-templates:/templates
@@ -376,7 +404,13 @@ services:
     container_name: authentik-worker
     restart: unless-stopped
     env_file: [.env]
+    profiles: [security]
     command: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
@@ -394,11 +428,14 @@ services:
     container_name: vaultwarden
     restart: unless-stopped
     env_file: [.env]
+    profiles: [security]
     environment:
       DOMAIN: ${VW_DOMAIN}
       ADMIN_TOKEN_FILE: /run/secrets/vw_admin_token
       SIGNUPS_ALLOWED: "true"
       WEBSOCKET_ENABLED: true
+    ports:
+      - "127.0.0.1:${PORT_VAULTWARDEN}:80"
     volumes:
       - ./compose/security/vaultwarden/data:/data
     networks:
@@ -428,6 +465,95 @@ services:
       retries: 3
       start_period: 10s
 
+  # =====================
+  # Monitoring
+  # =====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    profiles: [monitoring]
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./compose/monitoring/prometheus/data:/prometheus
+      - ./compose/monitoring/prometheus/config:/etc/prometheus
+    ports:
+      - "127.0.0.1:${PORT_PROMETHEUS}:9090"
+    networks:
+      - monitoring
+    labels:
+      - "homepage.group=Monitoring"
+      - "homepage.name=Prometheus"
+      - "homepage.icon=prometheus.png"
+      - "homepage.href=http://${DOMAIN}:${PORT_PROMETHEUS}"
+      - "homepage.description=Metrics collection and alerting"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    profiles: [monitoring]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "http://localhost:${PORT_GRAFANA}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${PORT_GRAFANA}:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    labels:
+      - "homepage.group=Monitoring"
+      - "homepage.name=Grafana"
+      - "homepage.icon=grafana.png"
+      - "homepage.href=http://${DOMAIN}:${PORT_GRAFANA}"
+      - "homepage.description=Metrics visualization and dashboards"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    profiles: [monitoring]
+    volumes:
+      - uptime_kuma_data:/app/data
+    ports:
+      - "127.0.0.1:${PORT_UPTIME}:3001"
+    networks:
+      - monitoring
+    labels:
+      - "homepage.group=Monitoring"
+      - "homepage.name=Uptime Kuma"
+      - "homepage.icon=uptime-kuma.png"
+      - "homepage.href=http://${DOMAIN}:${PORT_UPTIME}"
+      - "homepage.description=Uptime monitoring and status pages"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/entry-page"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
 # =====================
 # Network definitions
 # =====================
@@ -440,6 +566,8 @@ networks:
     external: true
   security:
     external: true
+  monitoring:
+    external: true
 
 # =====================
 # Named volumes
@@ -450,6 +578,8 @@ volumes:
   hermes_agent_src:
   hermes_workspace:
   omniroute_data:
+  grafana_data:
+  uptime_kuma_data:
 
 # =====================
 # Secrets
@@ -457,3 +587,5 @@ volumes:
 secrets:
   vw_admin_token:
     file: ./secrets/vw_admin_token.txt
+  webui_secret_key:
+    file: ./secrets/open_web_ui.txt

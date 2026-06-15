@@ -106,8 +106,10 @@ Per the [official Docker docs](https://github.com/nesquena/hermes-webui/blob/mas
 
 ### `hermes-agent` (gateway daemon)
 - **Image:** `nousresearch/hermes-agent:latest`
-- **Command:** `gateway run` (required — without this it defaults to interactive TUI and exits)
-- **Env:** `GATEWAY_ALLOW_ALL_USERS=true` (required for Docker access)
+- **Command:** Comment out `command: gateway run` to use the image's default CMD. If you explicitly set `command: gateway run`, you **must** also add `stdin_open: true` and `tty: true` — otherwise the gateway detects stdin is not a terminal and exits immediately with `Warning: Input is not a terminal (fd=0)` followed by `Goodbye!`, causing an infinite restart loop.
+- **Env:**
+  - `GATEWAY_ALLOW_ALL_USERS=true` (required for Docker access)
+  - `HERMES_DASHBOARD_INSECURE=1` (allows incoming API handshakes without auth blocks)
 - **Healthcheck:** Check `gateway_state.json`:
   ```yaml
   healthcheck:
@@ -117,7 +119,9 @@ Per the [official Docker docs](https://github.com/nesquena/hermes-webui/blob/mas
 
 ### `hermes` (WebUI)
 - **Image:** `ghcr.io/nesquena/hermes-webui:latest`
-- **Required env:** `HERMES_WEBUI_STATE_DIR=/home/hermeswebui/.hermes/webui`
+- **Required env:**
+  - `HERMES_WEBUI_STATE_DIR=/home/hermeswebui/.hermes/webui`
+  - `HERMES_AGENT_HOST=hermes-agent` (tells WebUI to reach the agent container via Docker network)
 - **Shared volumes:** Both containers mount the same `hermes_home` volume. The WebUI also mounts `hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro` (read-only) to install agent Python deps.
 
 ### Single-container warning
@@ -127,6 +131,7 @@ The community image `ghcr.io/roryford/hermes-station:latest` runs **only the Web
 - The s6-overlay init takes 2-3 minutes on first start (UID/GID remap + skill sync)
 - Gateway needs `HERMES_HOME=/home/hermes/.hermes` and `HERMES_UID=1000`/`HERMES_GID=1000`
 - WebUI needs `WANTED_UID=1000`/`WANTED_GID=1000` for file permission alignment
+- `gateway run` requires a TTY — if container is in restart loop with "Input is not a terminal", add `stdin_open: true` and `tty: true`, or remove the explicit command to use the default entrypoint
 
 ## 9. Consolidating modular compose files into a root docker-compose.yml
 
@@ -171,3 +176,281 @@ healthcheck:
 ```
 
 Verify availability with: `docker exec <name> which python3 wget curl nc` and `docker exec <name> node --version`
+
+## 11. Reorganizing services across compose directories
+
+When moving services between category subdirectories (e.g., `compose/productivity/hermes` → `compose/ai/hermes`), maintain consistency across both root and subdirectory compose files:
+
+### Directory moves
+```bash
+mv compose/<old-category>/<service> compose/<new-category>/<service>
+```
+
+### Root docker-compose.yml updates
+1. **Move service definition** to the appropriate section (e.g., `# AI / ML`, `# Productivity`)
+2. **Update homepage.group labels** to match the new category:
+   ```yaml
+   labels:
+     - "homepage.group=AI Core"  # was "Productivity"
+   ```
+3. **Remove empty section headers** if the old category is now unused
+
+### Subdirectory compose file updates
+1. **env_file paths remain valid** — `../../../.env` still works since directory depth is unchanged
+2. **Update homepage.group labels** to match root file
+3. **Add missing network definitions** if the service joins new networks:
+   ```yaml
+   networks:
+     proxy:
+       external: true
+     ai-ml:
+       external: true
+     database:          # newly added
+       external: true
+   ```
+
+### Container name conflicts during recreation
+When `docker compose up -d` fails with "container name already in use":
+```bash
+# docker compose stop/rm may not work if container is orphaned
+docker stop <container-name>
+docker rm <container-name>
+docker compose up -d <service-name>
+```
+
+## 12. Cross-network service connectivity
+
+Services that need to communicate must satisfy **both** requirements:
+
+1. **Network membership**: Both services must be on the same Docker network
+2. **Connection URL**: The client service needs the correct hostname/port URL
+
+### Example: Omniroute connecting to Redis
+```yaml
+services:
+  omniroute:
+    environment:
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+    networks:
+      - proxy
+      - ai-ml
+      - database        # Required: Redis is on this network
+
+  redis:
+    networks:
+      - database
+```
+
+**Symptom**: Service logs show "REDIS_URL not set" or "Using in-memory rate limiting" even though Redis is running.
+
+**Diagnosis**:
+```bash
+docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep REDIS
+docker network inspect <network-name>  # Check which containers are connected
+```
+
+**Fix**: Add the missing network to the service's `networks:` list AND set the connection URL environment variable.
+
+## 13. Config drift between root and subdirectory compose files
+
+When maintaining both a root `docker-compose.yml` and standalone per-service compose files (e.g., `compose/ai/hermes/docker-compose.yml`), they inevitably drift apart as manual edits are applied to one but not the other.
+
+### Symptoms
+- A service works fine from its standalone compose file but crashes when launched from the root file
+- Environment variables present in one file but missing from the other
+- Commands commented out in one file but active in the other
+
+### Resolution workflow
+1. **Read the standalone file first** — it's usually the more recently edited version
+2. **Diff the two** to identify missing env vars, commented-out commands, and label changes:
+   ```bash
+   diff <(grep -A5 "environment:" docker-compose.yml) <(grep -A5 "environment:" compose/ai/<service>/docker-compose.yml)
+   ```
+3. **Sync root → standalone** for structural consistency (network names, volume names)
+4. **Sync standalone → root** for service-specific tuning (env vars, commands, healthchecks)
+
+### Prevention
+- Treat the root `docker-compose.yml` as the source of truth
+- After editing a standalone compose file, also apply the same change to the root file
+- Use `docker compose config --services` to validate both files independently
+
+## 14. Adding localhost port access for Traefik-routed services
+
+Services behind Traefik often have no `ports:` block (relying on Traefik labels only). For local development without DNS/TLS, add host port mappings.
+
+### Pattern
+```yaml
+services:
+  myservice:
+    # ... existing traefik labels stay ...
+    ports:
+      - "${PORT_MYSERVICE}:8080"   # or whatever internal port
+```
+
+### Security-sensitive services
+Bind to `127.0.0.1` only to prevent LAN access:
+```yaml
+    ports:
+      - "127.0.0.1:${PORT_REDIS}:6379"
+      - "127.0.0.1:${PORT_POSTGRES}:5432"
+```
+
+### Verification
+```bash
+# Check actual port bindings (compose ps table sometimes truncates host IPs):
+docker inspect <container> --format '{{json .HostConfig.PortBindings}}'
+
+# Test connectivity:
+curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>
+```
+
+### When to use
+- During development before authentication is configured for external access
+- For internal-only services (databases, caches) that should never be publicly accessible
+- As a temporary measure while Traefik/DNS/certs are being set up
+
+## 15. Docker Compose profiles for selective startup
+
+When a stack has many services (14+), use `profiles` to enable selective startup and reduce resource usage:
+
+### Profile assignment pattern
+```yaml
+services:
+  # Core infra — no profile (always starts)
+  postgres:
+    ...
+  redis:
+    ...
+  traefik:
+    ...
+
+  # AI services
+  ollama:
+    profiles: [ai]
+  litellm:
+    profiles: [ai]
+  hermes:
+    profiles: [ai]
+
+  # Security services
+  authentik-server:
+    profiles: [security]
+  vaultwarden:
+    profiles: [security]
+
+  # Monitoring
+  prometheus:
+    profiles: [monitoring]
+  grafana:
+    profiles: [monitoring]
+```
+
+### Usage
+```bash
+docker compose up -d                                          # core only (traefik, postgres, redis)
+docker compose --profile ai up -d                             # + AI stack
+docker compose --profile security up -d                       # + security stack
+docker compose --profile ai --profile security up -d          # multiple profiles
+docker compose --profile ai --profile security --profile monitoring up -d  # everything
+```
+
+### Key rules
+- Services **without** a profile always start with `docker compose up`
+- Services **with** a profile only start when that profile is activated
+- `depends_on` services that have profiles will be pulled in automatically when the dependent is activated
+- Use `docker compose config --services` to see which services are active (without `--profile`, only unprofiled services show)
+
+## 16. Prometheus bind mount permission fix (WSL2)
+
+Prometheus runs as `nobody` (UID 65534) inside its container. When using a bind mount for the data directory on WSL2, the host-owned directory causes a panic:
+
+```
+ERROR source=query_logger.go:113 msg="Error opening query log file" err="open /prometheus/queries.active: permission denied"
+panic: Unable to create mmap-ed active query log
+```
+
+### Fix
+```bash
+sudo chown -R 65534:65534 /path/to/prometheus/data
+docker compose --profile monitoring restart prometheus
+```
+
+### Prevention
+When adding new services that run as non-root users (Prometheus=65534, Grafana=472), create the bind mount directory and set ownership before first `docker compose up`:
+```bash
+mkdir -p compose/monitoring/prometheus/data
+sudo chown -R 65534:65534 compose/monitoring/prometheus/data
+
+mkdir -p compose/monitoring/grafana/data
+sudo chown -R 472:472 compose/monitoring/grafana/data
+```
+
+Alternatively, use named volumes which avoid WSL2 bind mount permission issues entirely.
+
+## 17. Docker secrets `_FILE` pattern for services
+
+When a service needs a secret value loaded from a file, use Docker Compose's built-in `secrets` mechanism instead of environment variable paths:
+
+### Pattern
+```yaml
+services:
+  openwebui:
+    environment:
+      WEBUI_SECRET_KEY_FILE: /run/secrets/webui_secret_key   # container path
+    secrets:
+      - webui_secret_key                                       # mount reference
+
+secrets:
+  webui_secret_key:
+    file: ./secrets/open_web_ui.txt                            # host path
+```
+
+### Why this works
+- Docker mounts the secret file at `/run/secrets/<secret_name>` with `0400` permissions
+- The application reads the file path from the `_FILE` env var
+- The secret never appears in environment variable listings (`docker inspect` won't show the value)
+- Works with any `_FILE` suffix convention (e.g., `WEBUI_SECRET_KEY_FILE`, `ADMIN_TOKEN_FILE`)
+
+### Common pitfall
+Setting `WEBUI_SECRET_KEY_FILE=./secrets/open_web_ui.txt` (a host-relative path) as the env var value does NOT work — the path must be a **container-internal** path (`/run/secrets/...`). The host file is specified in the top-level `secrets:` section, not in the environment variable.
+
+### When `_FILE` is missing
+If a service generates a new random secret on every restart when `_FILE` is not set (e.g., OpenWebUI's session key), users get randomly logged out. **Always** uncomment and configure `_FILE` variables.
+
+## 18. Systematic security hardening procedure
+
+When hardening a Docker Compose stack for local development, follow this ordered checklist:
+
+### Port binding lockdown
+1. **Audit all port bindings**: `docker compose ps --format "{{.Name}}: {{.Ports}}"`
+2. **Lock everything to 127.0.0.1** except the reverse proxy:
+   ```yaml
+   # Before (exposed to all interfaces):
+   ports:
+     - "${PORT_SERVICE}:8080"
+
+   # After (localhost only):
+   ports:
+     - "127.0.0.1:${PORT_SERVICE}:8080"
+   ```
+3. **Keep 0.0.0.0 only for**: Traefik HTTP (80) and HTTPS (443) — these need to be externally reachable
+4. **Verify**: `docker inspect <container> --format '{{json .HostConfig.PortBindings}}'`
+
+### Secret management
+5. **File permissions**: `chmod 600 secrets/*_key.txt secrets/*_token.txt secrets/*_password.txt`
+6. **Docker secrets**: Convert env-based secrets to proper `secrets:` blocks (see §17)
+7. **Public keys**: `chmod 644 secrets/*.pub` (public keys are safe to read)
+
+### Service isolation
+8. **Add profiles**: Group services by function (ai, security, monitoring) — see §15
+9. **Network separation**: Ensure services only join networks they need
+10. **Remove unused ports**: If a service is only accessed via Docker network, remove its `ports:` block
+
+### Verification
+```bash
+# Check all port bindings are localhost-only (except traefik 80/443):
+docker compose ps --format "{{.Name}}: {{.Ports}}" | grep -v "127.0.0.1" | grep -v "traefik"
+
+# Check secret file permissions:
+ls -la secrets/ | grep -v "^total" | awk '{print $1, $NF}'
+```

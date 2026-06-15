@@ -6,11 +6,15 @@ services:
     restart: unless-stopped
     env_file:
       - ../../../.env
+    stdin_open: true
+    tty: true
     environment:
       HERMES_HOME: /home/hermes/.hermes
       HERMES_UID: "1000"
       HERMES_GID: "1000"
       GATEWAY_ALLOW_ALL_USERS: "true"
+      # Force gateway to accept incoming API handshakes without arbitrary auth blocks
+      HERMES_DASHBOARD_INSECURE: "1"   
     volumes:
       - hermes_home:/home/hermes/.hermes
       - hermes_agent_src:/opt/hermes
@@ -38,6 +42,8 @@ services:
       HERMES_WEBUI_PORT: "8787"
       WANTED_UID: "1000"
       WANTED_GID: "1000"
+      # Points the WebUI to communicate with your agent container inside the ai-ml network
+      HERMES_AGENT_HOST: "hermes-agent" 
     volumes:
       - hermes_home:/home/hermeswebui/.hermes
       - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
@@ -48,7 +54,7 @@ services:
       - proxy
       - ai-ml
     labels:
-      - "homepage.group=Productivity"
+      - "homepage.group=AI Core"
       - "homepage.name=Hermes"
       - "homepage.icon=hermes.png"
       - "homepage.href=https://hermes.${DOMAIN}"

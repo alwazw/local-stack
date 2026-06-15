@@ -240,4 +240,4 @@ Mount to both:
 | WSL2 filesystem | Use named volumes, not bind-mounts to `/mnt/d` |
 | Agent-OS paywall | Replicate behavior with grep/ripgrep codebase scanning |
 | MCP server crashes | Use in-process Python MCP servers (no external subprocess) |
-| Hermes gateway TUI exit | Always use `command: gateway run` + `GATEWAY_ALLOW_ALL_USERS=true` |
+| Hermes gateway TUI exit | Use `command: gateway run` + `GATEWAY_ALLOW_ALL_USERS=true` **and** `stdin_open: true` + `tty: true` in compose. Without TTY/stdin, the gateway detects `Input is not a terminal (fd=0)`, prints "Goodbye!" and exits — causing an infinite restart loop (`Restarting (0)`). s6 supervision alone does not fix this; it just keeps restarting the crashing process. |

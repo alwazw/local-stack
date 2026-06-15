@@ -3,8 +3,10 @@
 # ==========================================================
 .env
 .secrets
-#*.env.local
-#*.env.*.local
+*_key.txt
+*_password.txt
+*.env.local
+*.env.*.local
 
 # ==========================================================
 # 2. Dependency Parity (Let package-lock.json handle this)
