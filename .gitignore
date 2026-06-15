@@ -3,8 +3,13 @@
 # ==========================================================
 .env
 .secrets
+secrets/*
+!secrets/*.pub
+!secrets/README.md
 *_key.txt
 *_password.txt
+*_token.txt
+*_secret.txt
 *.env.local
 *.env.*.local
 

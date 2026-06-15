@@ -11,7 +11,6 @@ services:
     image: agent-zero-langgraph:latest
     container_name: agent-zero
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
     environment:
       LLM_PROVIDER: "openai"
@@ -24,21 +23,23 @@ services:
       AUDIT_DIR: /app/audit
       MEMORY_DIR: /app/data/memory
       MCP_BASE_URL: "http://mcpo:8000"
-      SSH_KEY_PATH: "/secrets/ssh_deploy_key"
+      SSH_KEY_PATH: "/run/secrets/ssh_deploy_key"
       SSH_USER: "deploy"
-      LITELLM_MASTER_KEY_FILE: "/secrets/litellm_key.txt"
+      LITELLM_MASTER_KEY_FILE: "/run/secrets/litellm_key"
     volumes:
       - ./compose/ai/agent-zero/data:/app/data
       - ./compose/ai/agent-zero/work_dir:/app/work_dir
       - ./projects:/app/projects
       - ./agents/qwen:/app/audit
-      - ./secrets:/secrets:ro
     ports:
       - "127.0.0.1:${PORT_AGENTZERO}:80"
       - "127.0.0.1:${PORT_AGENTZERO_API:-8081}:8080"
     networks:
       - ai-ml
       - agent-communication
+    secrets:
+      - litellm_key
+      - ssh_deploy_key
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Agent-Zero"
@@ -56,12 +57,11 @@ services:
     image: ghcr.io/berriai/litellm:main-latest
     container_name: litellm
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
     environment:
-      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY_FILE}"
       LITELLM_MODEL: "ollama/llama3.1:8b"
       OLLAMA_API_BASE: "http://ollama:11434"
+      LITELLM_MASTER_KEY_FILE: "/run/secrets/litellm_key"
       DEBUG: 1
     ports:
       - "127.0.0.1:${PORT_LITELLM}:4000"
@@ -70,6 +70,8 @@ services:
     networks:
       - proxy
       - ai-ml
+    secrets:
+      - litellm_key
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=LiteLLM"
@@ -121,7 +123,6 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
     volumes:
       - ./compose/ai/ollama/models:/root/.ollama
@@ -142,11 +143,10 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: openwebui
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
-      WEBUI_SECRET_KEY_FILE: "${WEBUI_SECRET_KEY_FILE}"
+      WEBUI_SECRET_KEY_FILE: /run/secrets/webui_secret_key
     ports:
       - "127.0.0.1:${PORT_OPENWEBUI}:8080"
     volumes:
@@ -170,7 +170,6 @@ services:
     container_name: hermes-agent
     command: gateway run
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
     stdin_open: true
     tty: true
@@ -197,12 +196,11 @@ services:
     image: ghcr.io/nesquena/hermes-webui:latest
     container_name: hermes
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
     depends_on:
       - hermes-agent
     environment:
-      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD}
       HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
       HERMES_WEBUI_HOST: "0.0.0.0"
       HERMES_WEBUI_PORT: "8787"
@@ -213,11 +211,14 @@ services:
       - hermes_home:/home/hermeswebui/.hermes
       - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
       - hermes_workspace:/workspace
+      - ./compose/ai/hermes/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     ports:
       - "127.0.0.1:${PORT_HERMES}:8787"
     networks:
       - proxy
       - ai-ml
+    secrets:
+      - hermes_password
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Hermes"
@@ -240,23 +241,25 @@ services:
     image: diegosouzapw/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
-    env_file: [.env]
     profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
     depends_on:
       - redis
     environment:
       PORT: "${PORT_OMNIROUTE}"
       REQUIRE_API_KEY: "false"
       DATA_DIR: /app/data
-      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
     volumes:
       - omniroute_data:/app/data
+      - ./compose/ai/omniroute/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     ports:
       - "127.0.0.1:${PORT_OMNIROUTE}:20128"
     networks:
       - proxy
       - ai-ml
       - database
+    secrets:
+      - redis_password
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Omniroute"
@@ -285,7 +288,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - ./compose/data/postgres/data:/var/lib/postgresql/data
@@ -294,6 +297,8 @@ services:
       - "127.0.0.1:${PORT_POSTGRES}:5432"
     networks:
       - database
+    secrets:
+      - postgres_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
@@ -312,19 +317,22 @@ services:
     container_name: redis
     restart: unless-stopped
     command:
-      - redis-server
-      - --requirepass
-      - ${REDIS_PASSWORD}
-      - --appendonly
-      - "yes"
+      - sh
+      - -c
+      - |
+        redis-server \
+          --requirepass "$$(cat /run/secrets/redis_password)" \
+          --appendonly yes
     ports:
       - "127.0.0.1:${PORT_REDIS}:6379"
     volumes:
       - ./compose/data/redis/data:/data
     networks:
       - database
+    secrets:
+      - redis_password
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a '${REDIS_PASSWORD}' ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a $$(cat /run/secrets/redis_password) ping"]
       interval: 30s
 
   # =====================
@@ -334,7 +342,8 @@ services:
     image: traefik:latest
     container_name: traefik
     restart: unless-stopped
-    env_file: [.env]
+    profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
     command:
       - --api.dashboard=true
       - --api.insecure=false
@@ -351,7 +360,7 @@ services:
       - --entrypoints.websecure.http.tls=true
       - --certificatesresolvers.cloudflare.acme.dnschallenge=true
       - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
-      - --certificatesresolvers.cloudflare.acme.email=${CF_API_EMAIL}
+      - --certificatesresolvers.cloudflare.acme.email=wafic@wazzan.us
       - --certificatesresolvers.cloudflare.acme.storage=/data/acme.json
       - --log.level=INFO
       - --accesslog=true
@@ -362,12 +371,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./compose/network/traefik/data:/data
+      - ./compose/network/traefik/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    secrets:
+      - cf_api_email
+      - cf_dns_api_token
     networks:
       - proxy
-    environment:
-      CF_API_EMAIL: ${CF_API_EMAIL}
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
-      CF_API_KEY: ${CF_API_KEY}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/ping"]
       interval: 30s
@@ -377,11 +386,23 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=authentik@docker"
       - "homepage.group=Network"
       - "homepage.name=Traefik"
       - "homepage.icon=traefik.png"
       - "homepage.href=https://traefik.${DOMAIN}"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    profiles: [network]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    networks:
+      - proxy
+    secrets:
+      - cf_tunnel_token
+    volumes:
+      - ./compose/network/cloudflared/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
 
   # =====================
   # Security
@@ -390,26 +411,28 @@ services:
     image: ghcr.io/goauthentik/server:2024.10.1
     container_name: authentik-server
     restart: unless-stopped
-    env_file: [.env]
     profiles: [security]
-    command: server
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["dumb-init", "--", "ak", "server"]
     environment:
       AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
     ports:
       - "127.0.0.1:${PORT_AUTHENTIK}:9000"
     volumes:
       - authentik_media:/media
       - ./compose/security/authentik/custom-templates:/templates
+      - ./compose/security/authentik/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     networks:
       - proxy
       - database
       - security
+    secrets:
+      - authentik_secret
+      - redis_password
+      - postgres_password
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
@@ -419,9 +442,9 @@ services:
     image: ghcr.io/goauthentik/server:2024.10.1
     container_name: authentik-worker
     restart: unless-stopped
-    env_file: [.env]
     profiles: [security]
-    command: worker
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["dumb-init", "--", "ak", "worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -429,21 +452,23 @@ services:
         condition: service_healthy
     environment:
       AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
     networks:
       - database
       - security
+    secrets:
+      - authentik_secret
+      - redis_password
+      - postgres_password
+    volumes:
+      - ./compose/security/authentik/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
 
   vaultwarden:
     image: vaultwarden/server:latest
     container_name: vaultwarden
     restart: unless-stopped
-    env_file: [.env]
     profiles: [security]
     environment:
       DOMAIN: ${VW_DOMAIN}
@@ -600,10 +625,53 @@ volumes:
   uptime_kuma_data:
 
 # =====================
-# Secrets
+# Secrets — ALL secrets mounted as files, NEVER in .env or environment variables
+# Pattern: file: ./secrets/<name>.txt → mounted at /run/secrets/<name>
+# Services read secrets via:
+#   - _FILE env var (Postgres, Redis, Vaultwarden, etc.)
+#   - Entrypoint wrapper script (Traefik, Cloudflared)
 # =====================
 secrets:
-  vw_admin_token:
-    file: ./secrets/vw_admin_token.txt
+  # Cloudflare — Traefik DNS challenge + Tunnel
+  cf_api_email:
+    file: ./secrets/cf_api_email.txt
+  cf_dns_api_token:
+    file: ./secrets/cf_dns_api_token.txt
+  cf_api_key:
+    file: ./secrets/cf_api_key.txt
+  cf_tunnel_token:
+    file: ./secrets/cf_tunnel_token.txt
+
+  # Authentication & API keys
+  authentik_secret:
+    file: ./secrets/authentik_secret.txt
+  hermes_password:
+    file: ./secrets/hermes_password.txt
+  github_token:
+    file: ./secrets/github_token.txt
+  agent_zero_key:
+    file: ./secrets/agent_zero_key.txt
+
+  # Application secrets
+  gitea_secret:
+    file: ./secrets/gitea_secret.txt
+  guac_admin_pass:
+    file: ./secrets/guac_admin_pass.txt
+  litellm_key:
+    file: ./secrets/litellm_key.txt
+  n8n_key:
+    file: ./secrets/n8n_key.txt
   webui_secret_key:
     file: ./secrets/open_web_ui.txt
+  vw_admin_token:
+    file: ./secrets/vw_admin_token.txt
+
+  # Database credentials
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+
+  # SSH deploy key
+  ssh_deploy_key:
+    file: ./secrets/ssh_deploy_key
