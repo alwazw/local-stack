@@ -218,6 +218,7 @@ services:
     networks:
       - proxy
       - ai-ml
+      - agent-communication
     secrets:
       - hermes_password
     labels:
