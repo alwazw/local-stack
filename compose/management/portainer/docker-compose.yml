@@ -1,0 +1,29 @@
+# Portainer CE — Docker container management UI
+# Profile: management
+# Network: proxy
+# Port: 9443 (HTTPS), 8000 (edge agent)
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    profiles: [management]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    ports:
+      - "0.0.0.0:8000:8000"
+      - "127.0.0.1:${PORT_PORTAINER:-9443}:9443"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=cloudflare"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "homepage.group=Management"
+      - "homepage.name=Portainer"
+      - "homepage.icon=portainer.png"
+      - "homepage.href=https://portainer.${DOMAIN}"
+      - "homepage.description=Docker container management"

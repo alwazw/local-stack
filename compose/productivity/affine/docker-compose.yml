@@ -1,0 +1,41 @@
+# Affine — Collaborative knowledge base (Notion alternative)
+# Profile: productivity
+# Network: proxy, database
+# Port: 8083
+services:
+  affine:
+    image: ghcr.io/toeverything/affine-graphql:stable
+    container_name: affine
+    restart: unless-stopped
+    profiles: [productivity]
+    environment:
+      NODE_ENV: production
+      REDIS_SERVER_HOST: redis
+      REDIS_SERVER_PASSWORD_FILE: /run/secrets/redis_password
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:changeme@postgres:5432/affine"
+      NODE_OPTIONS: "--import=./scripts/register.js"
+    volumes:
+      - affine_data:/root/.affine
+    ports:
+      - "127.0.0.1:${PORT_AFFINE:-8083}:3010"
+    networks:
+      - proxy
+      - database
+    secrets:
+      - redis_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.affine.rule=Host(`affine.${DOMAIN}`)"
+      - "traefik.http.routers.affine.entrypoints=websecure"
+      - "traefik.http.routers.affine.tls.certresolver=cloudflare"
+      - "traefik.http.services.affine.loadbalancer.server.port=3010"
+      - "homepage.group=Productivity"
+      - "homepage.name=Affine"
+      - "homepage.icon=affine.png"
+      - "homepage.href=https://affine.${DOMAIN}"
+      - "homepage.description=Collaborative knowledge base"

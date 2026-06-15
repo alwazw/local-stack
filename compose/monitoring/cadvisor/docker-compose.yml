@@ -1,0 +1,33 @@
+# cAdvisor — Container resource usage and performance
+# Profile: monitoring
+# Network: monitoring, proxy
+# Port: 8080 (internal, mapped via Traefik)
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    profiles: [monitoring]
+    devices:
+      - /dev/kmsg
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.${DOMAIN}`)"
+      - "traefik.http.routers.cadvisor.entrypoints=websecure"
+      - "traefik.http.routers.cadvisor.tls.certresolver=cloudflare"
+      - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
+      - "homepage.group=Monitoring"
+      - "homepage.name=cAdvisor"
+      - "homepage.icon=docker.png"
+      - "homepage.href=https://cadvisor.${DOMAIN}"
+      - "homepage.description=Container resource monitoring"

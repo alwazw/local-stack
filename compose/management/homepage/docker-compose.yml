@@ -1,0 +1,30 @@
+# Homepage — Modern application dashboard
+# Profile: management
+# Network: proxy
+# Port: 3004
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    profiles: [management]
+    environment:
+      - LOG_LEVEL=info
+    volumes:
+      - ./compose/management/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:${PORT_HOMEPAGE:-3004}:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`home.${DOMAIN}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls.certresolver=cloudflare"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+      - "homepage.group=Management"
+      - "homepage.name=Homepage"
+      - "homepage.icon=homepage.png"
+      - "homepage.href=https://home.${DOMAIN}"
+      - "homepage.description=Application dashboard"

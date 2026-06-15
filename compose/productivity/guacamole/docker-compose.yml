@@ -1,0 +1,59 @@
+# Guacamole — Remote desktop gateway (RDP, VNC, SSH, Kubernetes)
+# Profile: productivity
+# Network: proxy, database
+# Port: 8081
+# Depends: postgres (guacd for protocol translation)
+services:
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: guacd
+    restart: unless-stopped
+    profiles: [productivity]
+    volumes:
+      - guacd_drive:/drive:rw
+      - guacd_record:/record:rw
+    networks:
+      - ai-ml
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: guacamole
+    restart: unless-stopped
+    profiles: [productivity]
+    depends_on:
+      - guacd
+      - postgres
+    environment:
+      GUACD_HOSTNAME: guacd
+      POSTGRES_HOSTNAME: postgres
+      POSTGRES_DATABASE: guacamole
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRESQL_PASSWORD_FILE: /run/secrets/guac_admin_pass
+    volumes:
+      - guacd_drive:/drive:rw
+      - guacd_record:/record:rw
+    networks:
+      - proxy
+      - ai-ml
+      - database
+    secrets:
+      - postgres_password
+      - guac_admin_pass
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/guacamole"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.guacamole.rule=Host(`rdp.${DOMAIN}`)"
+      - "traefik.http.routers.guacamole.entrypoints=websecure"
+      - "traefik.http.routers.guacamole.tls.certresolver=cloudflare"
+      - "traefik.http.services.guacamole.loadbalancer.server.port=8080"
+      - "homepage.group=Productivity"
+      - "homepage.name=Guacamole"
+      - "homepage.icon=guacamole.png"
+      - "homepage.href=https://rdp.${DOMAIN}"
+      - "homepage.description=Remote desktop gateway (RDP/VNC/SSH)"

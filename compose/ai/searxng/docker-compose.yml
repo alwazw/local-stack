@@ -1,0 +1,36 @@
+# SearXNG — Privacy-respecting metasearch engine
+# Profile: ai
+# Network: proxy, ai-ml
+# Port: 8080
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    profiles: [ai]
+    environment:
+      SEARXNG_BASE_URL: "http://searxng:8080/"
+      SEARXNG_SECRET_KEY: "changeme-replace-with-random-key"
+    volumes:
+      - ./compose/ai/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./compose/ai/searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+    networks:
+      - proxy
+      - ai-ml
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=Host(`search.${DOMAIN}`)"
+      - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng.tls.certresolver=cloudflare"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "homepage.group=AI"
+      - "homepage.name=SearXNG"
+      - "homepage.icon=searxng.png"
+      - "homepage.href=https://search.${DOMAIN}"
+      - "homepage.description=Privacy-respecting metasearch"

@@ -595,6 +595,394 @@ services:
       retries: 3
       start_period: 30s
 
+  # =====================
+  # AI — Additional
+  # =====================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    profiles: [ai]
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:${PORT_QDRANT:-6333}:6333"
+    networks:
+      - ai-ml
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "homepage.group=AI"
+      - "homepage.name=Qdrant"
+      - "homepage.icon=qdrant.png"
+      - "homepage.href=http://localhost:${PORT_QDRANT:-6333}/dashboard"
+      - "homepage.description=Vector Database for embeddings"
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    profiles: [ai]
+    environment:
+      SEARXNG_BASE_URL: "http://searxng:8080/"
+      SEARXNG_SECRET_KEY_FILE: /run/secrets/webui_secret_key
+    volumes:
+      - ./compose/ai/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./compose/ai/searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+    networks:
+      - proxy
+      - ai-ml
+    secrets:
+      - webui_secret_key
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=Host(`search.${DOMAIN}`)"
+      - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng.tls.certresolver=cloudflare"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+      - "homepage.group=AI"
+      - "homepage.name=SearXNG"
+      - "homepage.icon=searxng.png"
+      - "homepage.href=https://search.${DOMAIN}"
+      - "homepage.description=Privacy-respecting metasearch"
+
+  # =====================
+  # Productivity
+  # =====================
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: guacd
+    restart: unless-stopped
+    profiles: [productivity]
+    volumes:
+      - guacd_drive:/drive:rw
+      - guacd_record:/record:rw
+    networks:
+      - ai-ml
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: guacamole
+    restart: unless-stopped
+    profiles: [productivity]
+    depends_on:
+      - guacd
+      - postgres
+    environment:
+      GUACD_HOSTNAME: guacd
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_DATABASE: guacamole
+      POSTGRESQL_USER: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+      - guac_admin_pass
+    networks:
+      - proxy
+      - ai-ml
+      - database
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/guacamole"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.guacamole.rule=Host(`rdp.${DOMAIN}`)"
+      - "traefik.http.routers.guacamole.entrypoints=websecure"
+      - "traefik.http.routers.guacamole.tls.certresolver=cloudflare"
+      - "traefik.http.services.guacamole.loadbalancer.server.port=8080"
+      - "homepage.group=Productivity"
+      - "homepage.name=Guacamole"
+      - "homepage.icon=guacamole.png"
+      - "homepage.href=https://rdp.${DOMAIN}"
+      - "homepage.description=Remote desktop gateway (RDP/VNC/SSH)"
+
+  # =====================
+  # CI/CD
+  # =====================
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    restart: unless-stopped
+    profiles: [ci]
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: ${POSTGRES_USER}
+      GITEA__database__PASSWD_FILE: /run/secrets/postgres_password
+      GITEA__server__DOMAIN: "gitea.${DOMAIN}"
+      GITEA__server__ROOT_URL: "https://gitea.${DOMAIN}/"
+      GITEA__server__HTTP_PORT: 3000
+      GITEA__security__SECRET_KEY_FILE: /run/secrets/gitea_secret
+    volumes:
+      - gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:${PORT_GITEA:-3001}:3000"
+      - "127.0.0.1:2222:22"
+    networks:
+      - proxy
+      - database
+    secrets:
+      - postgres_password
+      - gitea_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitea.rule=Host(`gitea.${DOMAIN}`)"
+      - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea.tls.certresolver=cloudflare"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+      - "homepage.group=CI/CD"
+      - "homepage.name=Gitea"
+      - "homepage.icon=gitea.png"
+      - "homepage.href=https://gitea.${DOMAIN}"
+      - "homepage.description=Self-hosted Git service"
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    profiles: [ci]
+    environment:
+      N8N_HOST: "n8n.${DOMAIN}"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "https"
+      N8N_EDITOR_BASE_URL: "https://n8n.${DOMAIN}/"
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_key
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:${PORT_N8N:-5678}:5678"
+    networks:
+      - proxy
+      - database
+    secrets:
+      - n8n_key
+      - postgres_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=cloudflare"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+      - "homepage.group=CI/CD"
+      - "homepage.name=n8n"
+      - "homepage.icon=n8n.png"
+      - "homepage.href=https://n8n.${DOMAIN}"
+      - "homepage.description=Workflow automation platform"
+
+  # =====================
+  # Monitoring — Additional
+  # =====================
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    profiles: [monitoring]
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./compose/monitoring/loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:${PORT_LOKI:-3100}:3100"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "homepage.group=Monitoring"
+      - "homepage.name=Loki"
+      - "homepage.icon=grafana.png"
+      - "homepage.href=http://localhost:${PORT_LOKI:-3100}"
+      - "homepage.description=Log aggregation system"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    profiles: [monitoring]
+    command: ["-config.file=/etc/promtail/config.yaml"]
+    volumes:
+      - ./compose/monitoring/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    profiles: [monitoring]
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.${DOMAIN}`)"
+      - "traefik.http.routers.cadvisor.entrypoints=websecure"
+      - "traefik.http.routers.cadvisor.tls.certresolver=cloudflare"
+      - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
+      - "homepage.group=Monitoring"
+      - "homepage.name=cAdvisor"
+      - "homepage.icon=docker.png"
+      - "homepage.href=https://cadvisor.${DOMAIN}"
+      - "homepage.description=Container resource monitoring"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    profiles: [monitoring]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`logs.${DOMAIN}`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls.certresolver=cloudflare"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+      - "homepage.group=Monitoring"
+      - "homepage.name=Dozzle"
+      - "homepage.icon=dozzle.png"
+      - "homepage.href=https://logs.${DOMAIN}"
+      - "homepage.description=Real-time Docker log viewer"
+
+  # =====================
+  # Management
+  # =====================
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    profiles: [management]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    ports:
+      - "0.0.0.0:8000:8000"
+      - "127.0.0.1:${PORT_PORTAINER:-9443}:9443"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=cloudflare"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "homepage.group=Management"
+      - "homepage.name=Portainer"
+      - "homepage.icon=portainer.png"
+      - "homepage.href=https://portainer.${DOMAIN}"
+      - "homepage.description=Docker container management"
+
+  dockge:
+    image: louislam/dockge:latest
+    container_name: dockge
+    restart: unless-stopped
+    profiles: [management]
+    environment:
+      DOCKGE_STACKS_DIR: /opt/stacks
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dockge_data:/app/data
+    ports:
+      - "127.0.0.1:${PORT_DOCKGE:-5001}:5001"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockge.rule=Host(`dockge.${DOMAIN}`)"
+      - "traefik.http.routers.dockge.entrypoints=websecure"
+      - "traefik.http.routers.dockge.tls.certresolver=cloudflare"
+      - "traefik.http.services.dockge.loadbalancer.server.port=5001"
+      - "homepage.group=Management"
+      - "homepage.name=Dockge"
+      - "homepage.icon=dockge.png"
+      - "homepage.href=https://dockge.${DOMAIN}"
+      - "homepage.description=Docker Compose management UI"
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    profiles: [management]
+    environment:
+      - LOG_LEVEL=info
+    volumes:
+      - ./compose/management/homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:${PORT_HOMEPAGE:-3004}:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`home.${DOMAIN}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls.certresolver=cloudflare"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+      - "homepage.group=Management"
+      - "homepage.name=Homepage"
+      - "homepage.icon=homepage.png"
+      - "homepage.href=https://home.${DOMAIN}"
+      - "homepage.description=Application dashboard"
+
 # =====================
 # Network definitions
 # =====================
@@ -623,6 +1011,14 @@ volumes:
   omniroute_data:
   grafana_data:
   uptime_kuma_data:
+  qdrant_data:
+  guacd_drive:
+  guacd_record:
+  gitea_data:
+  n8n_data:
+  loki_data:
+  portainer_data:
+  dockge_data:
 
 # =====================
 # Secrets — ALL secrets mounted as files, NEVER in .env or environment variables

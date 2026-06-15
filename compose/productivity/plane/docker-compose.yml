@@ -1,0 +1,74 @@
+# Plane — Project management (Jira/Linear alternative)
+# Profile: productivity
+# Network: proxy, database
+# Port: 8085
+services:
+  plane-web:
+    image: makeplane/plane-frontend:latest
+    container_name: plane-web
+    restart: unless-stopped
+    profiles: [productivity]
+    networks:
+      - proxy
+      - ai-ml
+
+  plane-api:
+    image: makeplane/plane-backend:latest
+    container_name: plane-api
+    restart: unless-stopped
+    profiles: [productivity]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      WEB_URL: "https://plane.${DOMAIN}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:changeme@postgres:5432/plane"
+      REDIS_URL: "redis://:changeme@redis:6379/"
+      SECRET_KEY_FILE: /run/secrets/gitea_secret
+    networks:
+      - proxy
+      - ai-ml
+      - database
+    secrets:
+      - gitea_secret
+
+  plane-worker:
+    image: makeplane/plane-backend:latest
+    container_name: plane-worker
+    restart: unless-stopped
+    profiles: [productivity]
+    command: ["python", "manage.py", "worker"]
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:changeme@postgres:5432/plane"
+      REDIS_URL: "redis://:changeme@redis:6379/"
+    networks:
+      - ai-ml
+      - database
+    depends_on:
+      - plane-api
+
+  plane-proxy:
+    image: makeplane/plane-proxy:latest
+    container_name: plane-proxy
+    restart: unless-stopped
+    profiles: [productivity]
+    ports:
+      - "127.0.0.1:${PORT_PLANE:-8085}:80"
+    networks:
+      - proxy
+    depends_on:
+      - plane-web
+      - plane-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plane.rule=Host(`plane.${DOMAIN}`)"
+      - "traefik.http.routers.plane.entrypoints=websecure"
+      - "traefik.http.routers.plane.tls.certresolver=cloudflare"
+      - "traefik.http.services.plane.loadbalancer.server.port=80"
+      - "homepage.group=Productivity"
+      - "homepage.name=Plane"
+      - "homepage.icon=plane.png"
+      - "homepage.href=https://plane.${DOMAIN}"
+      - "homepage.description=Project management (Jira alternative)"

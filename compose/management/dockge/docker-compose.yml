@@ -1,0 +1,31 @@
+# Dockge — Docker Compose management UI (self-hosted)
+# Profile: management
+# Network: proxy
+# Port: 5001
+services:
+  dockge:
+    image: louislam/dockge:latest
+    container_name: dockge
+    restart: unless-stopped
+    profiles: [management]
+    environment:
+      DOCKGE_STACKS_DIR: /home/alwazw/docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dockge_data:/app/data
+      - /home/alwazw/docker:/home/alwazw/docker
+    ports:
+      - "127.0.0.1:${PORT_DOCKGE:-5001}:5001"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockge.rule=Host(`dockge.${DOMAIN}`)"
+      - "traefik.http.routers.dockge.entrypoints=websecure"
+      - "traefik.http.routers.dockge.tls.certresolver=cloudflare"
+      - "traefik.http.services.dockge.loadbalancer.server.port=5001"
+      - "homepage.group=Management"
+      - "homepage.name=Dockge"
+      - "homepage.icon=dockge.png"
+      - "homepage.href=https://dockge.${DOMAIN}"
+      - "homepage.description=Docker Compose management UI"
