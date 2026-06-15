@@ -1,0 +1,35 @@
+# ==========================================================
+# 1. Secrets (Always ignore local secrets!)
+# ==========================================================
+.env
+.secrets
+#*.env.local
+#*.env.*.local
+
+# ==========================================================
+# 2. Dependency Parity (Let package-lock.json handle this)
+# ==========================================================
+node_modules/
+jspm_packages/
+web_modules/
+
+# Keep package-lock.json so everyone builds the EXACT same packages
+!package-lock.json
+
+# ==========================================================
+# 3. Docker Runtime Volumes (Avoid DB lock crashes)
+# ==========================================================
+data/
+compose/*/data/
+*.db
+*.sqlite
+
+# ==========================================================
+# 4. System Logs & Cache
+# ==========================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.DS_Store
+Thumbs.db

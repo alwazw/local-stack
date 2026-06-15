@@ -1,0 +1,42 @@
+{
+  "task_id": "89f47618",
+  "active_agents": [
+    {
+      "agent_id": "taskflow",
+      "role": "project_manager",
+      "status": "completed",
+      "project": "taskflow",
+      "output_summary": "3 features"
+    },
+    {
+      "agent_id": "7f63634d",
+      "role": "developer",
+      "status": "completed",
+      "project": "taskflow",
+      "output_summary": "specialty=fullstack, builds: 3/3 passed"
+    },
+    {
+      "agent_id": "2b1ec790",
+      "role": "developer",
+      "status": "completed",
+      "project": "taskflow",
+      "output_summary": "specialty=fullstack, builds: 3/3 passed"
+    },
+    {
+      "agent_id": "63cf546f",
+      "role": "developer",
+      "status": "completed",
+      "project": "taskflow",
+      "output_summary": "specialty=fullstack, builds: 3/3 passed"
+    },
+    {
+      "agent_id": "devops",
+      "role": "devops",
+      "status": "completed",
+      "project": "taskflow",
+      "output_summary": "deployed to production-vm, 3 artifacts"
+    }
+  ],
+  "total_spawned": 5,
+  "timestamp": "2026-06-14T22:31:15.621344+00:00"
+}

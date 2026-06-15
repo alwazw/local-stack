@@ -1,0 +1,63 @@
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    env_file: [../../../.env]
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --ping=true
+      - --ping.entrypoint=ping
+      - --entrypoints.ping.address=:8080
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --certificatesresolvers.cloudflare.acme.dnschallenge=true
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.email=${CF_API_EMAIL}
+      - --certificatesresolvers.cloudflare.acme.storage=/data/acme.json
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - "${PORT_TRAEFIK_HTTP}:80"
+      - "${PORT_TRAEFIK_HTTPS}:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/data
+    networks:
+      - proxy
+    environment:
+      CF_API_EMAIL: ${CF_API_EMAIL}
+      CF_DNS_API_TOKEN: 0elXF1xGmGc7yVIAN/EPX1Wrsx24ZtEAP9Qogq+lmSc=
+      CF_API_KEY: YXML5M+oVLN882/8jxyBdIpP1/nNcliYKFWVi1hsaAg=
+    secrets:
+      - cf_api_key
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/ping"]
+      interval: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=authentik@docker"
+      - "homepage.group=Network"
+      - "homepage.name=Traefik"
+      - "homepage.icon=traefik.png"
+      - "homepage.href=https://traefik.${DOMAIN}"
+
+secrets:
+  cf_api_key:
+    file: ../../../secrets/cf_api_key.txt
+
+networks:
+  proxy:
+    external: true

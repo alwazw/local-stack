@@ -1,0 +1,35 @@
+# File: ~/docker/compose/ai/mcpo/docker-compose.yml
+services:
+  mcpo:
+    image: ghcr.io/open-webui/mcpo:latest
+    container_name: mcpo
+    restart: unless-stopped
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--"
+      - "python3"
+      - "-c"
+      - |
+        from mcp.server.fastmcp import FastMCP
+        mcp = FastMCP("ae3-tools")
+        @mcp.tool()
+        def echo(message: str) -> str:
+            return message
+        mcp.run()
+    ports:
+      - "${PORT_MCPO}:8000"
+    networks:
+      - ai-ml
+    labels:
+      - "homepage.group=AI Core"
+      - "homepage.name=MCPO"
+      - "homepage.icon=mcpo.png"
+      - "homepage.href=http://${DOMAIN}:${PORT_MCPO}/docs"
+      - "homepage.description=MCP-to-OpenAPI Bridge"
+
+networks:
+  ai-ml:
+    external: true

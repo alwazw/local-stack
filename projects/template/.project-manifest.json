@@ -1,0 +1,14 @@
+{
+  "project_name": "template",
+  "status": "initialized",
+  "created_at": "2026-06-14T00:00:00Z",
+  "directories": {
+    "frontend": "frontend",
+    "backend": "backend",
+    "docker": "docker",
+    "audit": ".audit"
+  },
+  "features": [],
+  "boundaries": [],
+  "exclusions": []
+}

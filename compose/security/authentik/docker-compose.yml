@@ -1,0 +1,52 @@
+services:
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.10.1
+    container_name: authentik-server
+    restart: unless-stopped
+    env_file: [../../../.env]
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: PzH4sqKhZKzwGVBYpu3S5S6f742n6vXZtA4O8LHTQUI=
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: mPfIVznCZRhSmutj3KBPOLIHT85dJS0Tg15ZbpzoVWg=
+      AUTHENTIK_SECRET_KEY: 5HcPEkNgrQOaXhpH5Tp/SaSXdDHQHU7511OLWd/W8x4=
+    volumes:
+      - authentik_media:/media
+      - ./custom-templates:/templates
+    networks:
+      - proxy
+      - database
+      - security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.10.1
+    container_name: authentik-worker
+    restart: unless-stopped
+    env_file: [../../../.env]
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: PzH4sqKhZKzwGVBYpu3S5S6f742n6vXZtA4O8LHTQUI=
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: mPfIVznCZRhSmutj3KBPOLIHT85dJS0Tg15ZbpzoVWg=
+      AUTHENTIK_SECRET_KEY: 5HcPEkNgrQOaXhpH5Tp/SaSXdDHQHU7511OLWd/W8x4=
+    networks:
+      - database
+      - security
+
+networks:
+  proxy: {external: true}
+  database: {external: true}
+  security: {external: true}
+
+volumes:
+  authentik_media:

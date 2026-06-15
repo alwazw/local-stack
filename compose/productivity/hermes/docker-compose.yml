@@ -1,0 +1,77 @@
+services:
+  hermes-agent:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-agent
+    command: gateway run
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+      GATEWAY_ALLOW_ALL_USERS: "true"
+    volumes:
+      - hermes_home:/home/hermes/.hermes
+      - hermes_agent_src:/opt/hermes
+    networks:
+      - ai-ml
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  hermes:
+    image: ghcr.io/nesquena/hermes-webui:latest
+    container_name: hermes
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    depends_on:
+      - hermes-agent
+    environment:
+      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD}
+      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
+      HERMES_WEBUI_HOST: "0.0.0.0"
+      HERMES_WEBUI_PORT: "8787"
+      WANTED_UID: "1000"
+      WANTED_GID: "1000"
+    volumes:
+      - hermes_home:/home/hermeswebui/.hermes
+      - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
+      - hermes_workspace:/workspace
+    ports:
+      - "${PORT_HERMES}:8787"
+    networks:
+      - proxy
+      - ai-ml
+    labels:
+      - "homepage.group=Productivity"
+      - "homepage.name=Hermes"
+      - "homepage.icon=hermes.png"
+      - "homepage.href=https://hermes.${DOMAIN}"
+      - "homepage.description=Self-hosted AI Agent with Memory & Tools"
+      - "traefik.enable=true"
+      - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
+      - "traefik.http.routers.hermes.entrypoints=websecure"
+      - "traefik.http.routers.hermes.tls.certresolver=cloudflare"
+      - "traefik.http.services.hermes.loadbalancer.server.port=8787"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  hermes_home:
+  hermes_agent_src:
+  hermes_workspace:
+
+networks:
+  proxy:
+    external: true
+  ai-ml:
+    external: true

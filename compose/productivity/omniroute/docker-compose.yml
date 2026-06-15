@@ -1,0 +1,44 @@
+services:
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: omniroute
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    environment:
+      PORT: "${PORT_OMNIRUTE}"
+      REQUIRE_API_KEY: "false"
+      DATA_DIR: /app/data
+    volumes:
+      - omniroute_data:/app/data
+    ports:
+      - "${PORT_OMNIRUTE}:20128"
+    networks:
+      - proxy
+      - ai-ml
+    labels:
+      - "homepage.group=Productivity"
+      - "homepage.name=Omniroute"
+      - "homepage.icon=omniroute.png"
+      - "homepage.href=https://omniroute.${DOMAIN}"
+      - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
+      - "traefik.enable=true"
+      - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
+      - "traefik.http.routers.omniroute.entrypoints=websecure"
+      - "traefik.http.routers.omniroute.tls.certresolver=cloudflare"
+      - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/20128"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  omniroute_data:
+
+networks:
+  proxy:
+    external: true
+  ai-ml:
+    external: true

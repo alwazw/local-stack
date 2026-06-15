@@ -1,0 +1,52 @@
+# File: ~/docker/compose/ai/agent-zero/docker-compose.yml
+services:
+  agent-zero:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-zero-langgraph:latest
+    container_name: agent-zero
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    environment:
+      LLM_PROVIDER: "openai"
+      LLM_BASE_URL: "http://litellm:4000"
+      LLM_MODEL: "ollama/llama3.1:8b"
+      QDRANT_HOST: "qdrant"
+      QDRANT_PORT: "${PORT_QDRANT}"
+      WORK_DIR: /app/work_dir
+      PYTHONPATH: /app
+      AUDIT_DIR: /app/audit
+      MEMORY_DIR: /app/data/memory
+      MCP_BASE_URL: "http://mcpo:8000"
+      SSH_KEY_PATH: "/secrets/ssh_deploy_key"
+      SSH_USER: "deploy"
+      LITELLM_MASTER_KEY_FILE: "/secrets/litellm_key.txt"
+    volumes:
+      - ./data:/app/data
+      - ./work_dir:/app/work_dir
+      - ../../projects:/app/projects
+      - ../../agents/qwen:/app/audit
+      - ../../../secrets:/secrets:ro
+    ports:
+      - "${PORT_AGENTZERO}:80"
+      - "${PORT_AGENTZERO_API:-8081}:8080"
+    networks:
+      - ai-ml
+    labels:
+      - "homepage.group=AI Core"
+      - "homepage.name=Agent-Zero"
+      - "homepage.icon=agent-zero.png"
+      - "homepage.href=http://${DOMAIN}:${PORT_AGENTZERO}"
+      - "homepage.description=Orchestrator for AI Subagents (Coder, Researcher)"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+networks:
+  ai-ml:
+    external: true

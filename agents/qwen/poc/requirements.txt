@@ -1,0 +1,8 @@
+# Agent Zero PoC — Python Dependencies
+# The PoC runs on stdlib only (zero deps).
+# These are the production dependencies for the LangGraph migration:
+
+langgraph>=0.2.0
+langchain-core>=0.3.0
+pydantic>=2.0.0
+httpx>=0.27.0

@@ -1,0 +1,10 @@
+# Excluded from Docker build context
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+.git/
+.gitignore
+.qwen/
+poc/

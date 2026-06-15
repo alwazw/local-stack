@@ -1,0 +1,24 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    env_file: [../../../.env]
+    volumes:
+      - ./models:/root/.ollama
+    ports:
+      - "${PORT_OLLAMA}:11434"
+    networks:
+      - ai-ml
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/11434"]
+      interval: 60s
+      start_period: 60s
+    labels:
+      - "homepage.group=AI"
+      - "homepage.name=Ollama"
+      - "homepage.icon=ollama.png"
+
+networks:
+  ai-ml:
+    external: true

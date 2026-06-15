@@ -1,0 +1,51 @@
+# File: ~/docker/compose/security/vaultwarden/docker-compose.yml
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    env_file:
+      - ../../../.env
+    environment:
+      DOMAIN: ${VW_DOMAIN}
+      ADMIN_TOKEN: /run/secrets/vw_admin_token
+      SIGNUPS_ALLOWED: "true"
+      WEBSOCKET_ENABLED: true
+    volumes:
+      - ./data:/data
+    networks:
+      - proxy
+      - security
+    secrets:
+      - vw_admin_token
+    labels:
+      - "homepage.group=Security"
+      - "homepage.name=Vaultwarden"
+      - "homepage.icon=vaultwarden.png"
+      - "homepage.href=https://vault.${DOMAIN}"
+      - "homepage.description=Password/Passkey Manager"
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`vault.${DOMAIN}`)"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.tls.certresolver=cloudflare"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+      - "traefik.http.routers.vaultwarden-ws.rule=Host(`vault.${DOMAIN}`) && Path(`/notifications/hub`)"
+      - "traefik.http.routers.vaultwarden-ws.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden-ws.service=vaultwarden"
+      - "traefik.http.routers.vaultwarden-ws.tls.certresolver=cloudflare"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+secrets:
+  vw_admin_token:
+    file: ../../../secrets/vw_admin_token.txt
+
+networks:
+  proxy:
+    external: true
+  security:
+    external: true
