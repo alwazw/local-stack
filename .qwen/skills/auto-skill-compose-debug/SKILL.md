@@ -552,7 +552,115 @@ Any bind mount where the container writes files:
 - Run `find compose/ -user root 2>/dev/null` periodically to check for unexpected root-owned files
 - Prefer Docker named volumes for data directories that don't need direct host access
 
-## 22. Root compose image mismatch with custom build
+## 23. API authentication middleware for FastAPI services
+
+When adding API key authentication to a FastAPI-based service (like Agent Zero), load the key dynamically from a Docker secret so it survives container restarts without rebuilding:
+
+### Pattern
+```python
+# api.py — middleware that reads key on EVERY request (not at module load)
+def _load_api_key() -> str:
+    key = os.environ.get("AGENT_ZERO_API_KEY", "")
+    if not key:
+        key_file = os.environ.get("AGENT_ZERO_API_KEY_FILE", "/run/secrets/agent_zero_key")
+        if os.path.exists(key_file):
+            try:
+                key = open(key_file).read().strip()
+            except Exception:
+                pass
+    return key
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    api_key = _load_api_key()
+    if not api_key:  # No key set = dev mode, allow all
+        return await call_next(request)
+    public_paths = {"/api/v1/health", "/docs", "/openapi.json", "/redoc"}
+    if request.url.path in public_paths:
+        return await call_next(request)
+    auth = request.headers.get("Authorization", "")
+    if auth != f"Bearer {api_key}":
+        return JSONResponse(status_code=401, content={"error": "Invalid or missing API key"})
+    return await call_next(request)
+```
+
+### Compose wiring
+```yaml
+services:
+  agent-zero:
+    environment:
+      AGENT_ZERO_API_KEY_FILE: "/run/secrets/agent_zero_key"
+    secrets:
+      - agent_zero_key
+```
+
+### Key rules
+- Load key on **every request** (not at module import time) — the secret file may change
+- Use `JSONResponse` not `HTTPException` — FastAPI's error handler converts `HTTPException` to HTML which breaks API clients
+- Health/docs endpoints must remain public for monitoring
+- Dev mode: no key = allow all (backward compatible)
+- Test: `curl` without key → 401, with wrong key → 401, with correct key → 200
+
+## 24. Qdrant integration via REST API (no python client)
+
+When Qdrant is running but you can't install `qdrant-client` in the container, use Qdrant's REST API directly via `httpx`:
+
+### Thin client wrapper
+```python
+import httpx, hashlib, struct
+
+class _QdrantClient:
+    def __init__(self, base_url="http://qdrant:6333", collection="project_memory"):
+        self.base_url = base_url.rstrip("/")
+        self.collection = collection
+
+    def ensure_collection(self):
+        # Create if not exists (409 = already exists, ignore)
+        r = httpx.put(f"{self.base_url}/collections/{self.collection}", json={
+            "vectors": {"size": 4, "distance": "Cosine"},
+        }, timeout=5)
+        if r.status_code not in (200, 409):
+            r.raise_for_status()
+
+    def upsert(self, point_id: str, vector: list[float], payload: dict):
+        httpx.put(f"{self.base_url}/collections/{self.collection}/points", json={
+            "points": [{"id": point_id, "vector": vector, "payload": payload}]
+        }, timeout=10).raise_for_status()
+
+    def scroll_by_project(self, project: str):
+        r = httpx.post(f"{self.base_url}/collections/{self.collection}/points/scroll", json={
+            "filter": {"must": [{"key": "project_name", "match": {"value": project}}]},
+            "limit": 100,
+        }, timeout=10)
+        return r.json().get("result", {}).get("points", [])
+```
+
+### Deterministic dummy vectors (for payload filtering, not semantic search)
+```python
+def _hash_vector(point_id: str) -> list[float]:
+    h = hashlib.md5(point_id.encode()).digest()
+    return list(struct.unpack("<4f", h[:16]))  # 4 floats from first 16 bytes
+```
+
+### Dual-backend pattern
+```python
+class ProjectMemory:
+    def __init__(self, memory_dir: Path):
+        self.json_backend = _JsonBackend(memory_dir)
+        try:
+            self._qdrant = _QdrantClient()
+            self._qdrant.ensure_collection()
+            self._qdrant_available = True
+        except Exception:
+            self._qdrant_available = False
+
+    def store_project_context(self, project, context):
+        if self._qdrant_available:
+            self._qdrant.upsert(point_id, vector, payload)  # Qdrant primary
+            self.json_backend.store_project_context(project, context)  # JSON backup
+            return {"status": "ok", "backend": "qdrant+json"}
+        return {"status": "ok", "backend": "json", ...}  # JSON fallback
+```
 
 When a root `docker-compose.yml` and a subdirectory compose file reference different images for the same service, the container starts successfully but custom modules are missing.
 
