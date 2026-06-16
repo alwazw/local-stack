@@ -1,216 +1,236 @@
-# 🗺️ System State & Vision Gap Analysis
+# System State & Gap Analysis
 
 ## 1. Executive Summary
-* **Current Phase:** Phase 5: Complete — All Integrations Live (LLM, MCP, SSH, Memory, API, HITL). Infrastructure hardened — all ports locked, monitoring deployed, compose profiles active.
-* **Target Objective:** Establish fully autonomous, multi-project full-stack deployments managed by Agent Zero under Hermes' direction.
-* **Last Updated:** 2026-06-15
-* **Key Decision:** Framework selected — **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers.
-* **Milestone:** Hermes → Agent Zero delegation pipeline live. Watchdog cron polls every 5 minutes. Custom skill teaches Hermes the full API. Task submitted and completed through 7-node graph in 15ms with 4 agents. **43/43 tests pass**. REST API live on port 8081. All services reachable: LLM ✓, MCP ✓, SSH ✓, Memory ✓. **Infrastructure hardened:** all 17 services running on `127.0.0.1`, monitoring stack live (Prometheus, Grafana, Uptime Kuma), compose profiles for selective startup.
+
+| Attribute | Value |
+| :--- | :--- |
+| **Current Phase** | Phase 5 Complete — All Integrations Live (LLM, MCP, SSH, Memory, API, HITL). Secret management overhauled. All ports locked. |
+| **Target Objective** | Establish fully autonomous, multi-project full-stack deployments managed by Agent Zero under Hermes' direction. |
+| **Last Updated** | 2026-06-16 |
+| **Framework** | **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers. |
+| **Infrastructure** | 31 services defined, 31 running, 26 healthy, 5 no-healthcheck (cloudflared, dozzle, loki, portainer, promtail). 7 compose profiles. 12 networks. 17 Docker secrets. |
 
 ---
 
-## 2. Infrastructure Milestone Matrix
+## 2. Infrastructure Inventory
+
+### 2.1 Service Status
+
+| Metric | Count |
+| :--- | :--- |
+| Services defined | 31 |
+| Services running | 31 |
+| Services healthy | 26 |
+| No healthcheck | 5 (cloudflared, dozzle, loki, portainer, promtail) |
+
+### 2.2 Services by Category
+
+| Category | Services | Profile |
+| :--- | :--- | :--- |
+| **Infrastructure** | traefik, postgres, redis | — (core) |
+| **AI Core** | agent-zero, hermes-agent, hermes, litellm, ollama, mcpo, omniroute, openwebui, qdrant, searxng | `ai` (default) |
+| **Security** | authentik-server, authentik-worker, vaultwarden | `security` |
+| **Monitoring** | prometheus, grafana, uptime-kuma, loki, promtail, cadvisor, dozzle | `monitoring` |
+| **Management** | portainer, dockge, homepage | `management` |
+| **CI/CD** | gitea, n8n | `ci` |
+| **Productivity** | guacd, guacamole | `productivity` |
+| **Network** | cloudflared | `network` |
+
+### 2.3 Compose Profiles (7)
+
+`ai` (default), `security`, `monitoring`, `management`, `ci`, `productivity`, `network`
+
+### 2.4 Docker Networks (12)
+
+`agent-communication`, `ai-ml`, `apps`, `bridge`, `database`, `docker_default`, `host`, `management`, `monitoring`, `none`, `proxy`, `security`
+
+**Bridge iptables rules configured for:** `ai-ml`, `database`, `proxy`
+
+### 2.5 Secret Management
+
+| Metric | Value |
+| :--- | :--- |
+| Secrets in docker-compose.yml | 17 |
+| Secrets in .env | 0 |
+| Secret files on disk | 20 (includes ssh_deploy_key.pub, workspaceId2.txt, omniroute_api_key.txt) |
+
+**All 17 Docker secrets (defined in docker-compose.yml):**
+
+| Secret | File | Purpose |
+| :--- | :--- | :--- |
+| `cf_api_email` | cf_api_email.txt | Cloudflare API email (Traefik DNS challenge) |
+| `cf_dns_api_token` | cf_dns_api_token.txt | Cloudflare DNS API token |
+| `cf_api_key` | cf_api_key.txt | Cloudflare API key |
+| `cf_tunnel_token` | cf_tunnel_token.txt | Cloudflare tunnel token |
+| `authentik_secret` | authentik_secret.txt | Authentik secret key |
+| `hermes_password` | hermes_password.txt | Hermes agent password |
+| `github_token` | github_token.txt | GitHub API token |
+| `agent_zero_key` | agent_zero_key.txt | Agent Zero API key |
+| `gitea_secret` | gitea_secret.txt | Gitea secret |
+| `guac_admin_pass` | guac_admin_pass.txt | Guacamole admin password |
+| `litellm_key` | litellm_key.txt | LiteLLM master API key |
+| `n8n_key` | n8n_key.txt | N8N API key |
+| `webui_secret_key` | open_web_ui.txt | Open WebUI secret |
+| `vw_admin_token` | vw_admin_token.txt | Vaultwarden admin token |
+| `postgres_password` | postgres_password.txt | PostgreSQL password |
+| `redis_password` | redis_password.txt | Redis password |
+| `ssh_deploy_key` | ssh_deploy_key | SSH deploy key (Ed25519) |
+
+**Additional secret files on disk (not in docker-compose.yml secrets section):**
+- `omniroute_api_key.txt` — Omniroute API key (used via env var)
+- `ssh_deploy_key.pub` — SSH deploy public key
+- `workspaceId2.txt` — Workspace ID reference (empty file)
+
+**Secret consumption pattern:** Services read secrets via `_FILE` env vars (Postgres, Redis, Vaultwarden, etc.) or the entrypoint wrapper script (Traefik, Cloudflared).
+
+### 2.6 Network Binding Policy
+
+All service ports locked to `127.0.0.1` except traefik (ports 80/443 public-facing).
+
+---
+
+## 3. Infrastructure Milestone Matrix
 
 | Module / Capability | Target Vision | Current Status | Next Action Required |
 | :--- | :--- | :--- | :--- |
-| **💬 Hermes Liaison** | Complete context retention across all multi-project pipelines. | 🟢 Deployed | `ProjectMemory` module live. JSON-based vector store with search. Upgrade to Qdrant for production scale. |
-| **🤝 Handshake Protocol** | Strict JSON contract validation before code is executed. | 🟢 Deployed | REST API `POST /api/v1/tasks` accepts contract JSON. Pydantic validation enforced. |
-| **🎛️ Agent Zero (CEO)** | Dynamic spawning of PM, Dev, and DevOps sub-agent layers via LangGraph. | 🟢 Deployed | Sub-agents wired to real LLM (LiteLLM), MCP tools (MCPO), and SSH deployment. |
-| **📦 Workspace Isolation** | Zero cross-contamination across active Docker/Node stacks. | 🟢 Achieved | `projects/` directory layout with `.project-manifest.json` template. |
-| **🌐 Production VM** | Automated, sandbox-verified deployments via DevOps agent. | 🟢 Deployed | SSH deployer with key-based auth, health-check retry, and auto-rollback. Ed25519 key generated. **Target VM: vm2** (Ubuntu Server 26.04 WSL). SSH authentication configured for `alwazw@vm2`. |
-| **📊 Audit Trail** | Real-time execution graph, agent registry, and decision logs in `agents/qwen/`. | 🟢 Deployed | 4 structured audit artifacts written to volume-mounted `AUDIT_DIR`. |
-| **🔌 REST API** | HTTP interface for Hermes → Agent Zero delegation. | 🟢 Deployed | FastAPI on port 8081. Endpoints: tasks CRUD, approval, health, projects, memory. |
-| **🧠 Vector Memory** | Cross-project context retention for LLM injection. | 🟢 Deployed | `ProjectMemory` module with store/retrieve/search. API endpoints for project context. |
-| **🔐 Human-in-the-Loop** | Board approval/veto of contracts before execution. | 🟢 Deployed | LangGraph `interrupt()` wired in `scope_validation_node`. REST API `POST /tasks/{id}/approve`. |
+| **Hermes Liaison** | Complete context retention across all multi-project pipelines. | Achieved | `ProjectMemory` module live. JSON-based vector store with search. Upgrade to Qdrant for production scale. |
+| **Handshake Protocol** | Strict JSON contract validation before code is executed. | Achieved | REST API `POST /api/v1/tasks` accepts contract JSON. Pydantic validation enforced. |
+| **Agent Zero (CEO)** | Dynamic spawning of PM, Dev, and DevOps sub-agent layers via LangGraph. | Achieved | Sub-agents wired to real LLM (LiteLLM), MCP tools (MCPO), and SSH deployment. |
+| **Workspace Isolation** | Zero cross-contamination across active Docker/Node stacks. | Achieved | `projects/` directory layout with `.project-manifest.json` template. |
+| **Production VM** | Automated, sandbox-verified deployments via DevOps agent. | Achieved | SSH deployer with key-based auth, health-check retry, and auto-rollback. Target VM: vm2 (Ubuntu Server 26.04 WSL). |
+| **Audit Trail** | Real-time execution graph, agent registry, and decision logs in `agents/qwen/`. | Achieved | 4 structured audit artifacts written to volume-mounted `AUDIT_DIR`. |
+| **REST API** | HTTP interface for Hermes to Agent Zero delegation. | Achieved | FastAPI on port 8081. Endpoints: tasks CRUD, approval, health, projects, memory. |
+| **Vector Memory** | Cross-project context retention for LLM injection. | Achieved (JSON) | `ProjectMemory` module with store/retrieve/search. API endpoints for project context. Qdrant running, client integration pending. |
+| **Human-in-the-Loop** | Board approval/veto of contracts before execution. | Achieved | LangGraph `interrupt()` wired in `scope_validation_node`. REST API `POST /tasks/{id}/approve`. |
 
-> **Status Keys:** 🟢 Achieved / Deployed | 🟡 In Progress / Partial | 🔴 Pending / Blocker
-
----
-
-### [🟢] Infrastructure Hardening & Security Remediation
-* **Objective:** Resolve all HIGH and MEDIUM priority security/reliability issues from the triage document.
-* **Date:** 2026-06-15
-* **Commit:** `af13998`
-* **Delivered:**
-  - All service ports locked to `127.0.0.1` (except traefik 80/443)
-  - WEBUI_SECRET_KEY_FILE wired via Docker secret
-  - MCPO healthcheck added
-  - Compose profiles: `ai`, `security`, `monitoring`
-  - Monitoring stack deployed: Prometheus, Grafana, Uptime Kuma
-  - PORT_OMNIROUTE typo fixed
-  - Homepage labels corrected for local dev
-  - .gitignore hardened to exclude secrets
-* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-infra-hardening.md`
-
-### [🟢] Deep Validation & SOP Documentation
-* **Objective:** Full-stack health check with deep log scrutiny and permanent SOP codification.
-* **Date:** 2026-06-15
-* **Commits:** `9f06128`, `50e13d1`
-* **Delivered:**
-  - 17/17 containers pass 4-step deep validation pipeline
-  - Stack Security and Operations Guide (`docs/stack-security-operations-guide.md`) — 661 lines
-  - Fixes: uptime-kuma healthcheck (wget→curl), Prometheus data dir permissions, orphan containers
-  - Untracked ollama model cache, expanded .gitignore for runtime volumes
-* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-deep-validation.md`
-
-### [🟢] MCP Tool Execution Layer Documentation
-* **Objective:** Codify authorized MCP server usage, boundary restrictions, and execution safety constraints.
-* **Date:** 2026-06-15
-* **Delivered:**
-  - SOP §11: MCP Tool Execution Layer (Automated Discovery)
-  - Filesystem MCP boundary rules (`/mnt/d/docker/` only)
-  - Docker MCP authorized operations and constraints
-  - MCPO bridge architecture and deployment instructions
-  - Mandatory lock protocol for concurrent sub-agent operations
-  - 4-phase MCP deployment roadmap (filesystem → docker → git/postgres)
-* **Current State:** MCPO bridge running, no MCP servers registered yet (Phase 1)
-
-### [🟢] Hermes → Agent Zero Delegation Pipeline
-* **Objective:** Enable Hermes to submit tasks to Agent Zero and monitor execution.
-* **Date:** 2026-06-15
-* **Delivered:**
-  - Fixed main `docker-compose.yml` to use `agent-zero-langgraph:latest` image (was using base `frdel/agent-zero:latest`)
-  - Enhanced `GET /api/v1/tasks` to return `final_status`, `completed_at`, `agent_count`
-  - Watchdog script (`compose/ai/agent-zero/scripts/hermes_delegate.sh`) — polls API health and task list
-  - Hermes custom skill (`agent-zero-delegation`) — full API reference and delegation workflow
-  - Recurring cron job (`agent-zero-watchdog`) — every 5 minutes, `--no-agent` mode
-  - Added `pytest` to Dockerfile for in-container test suite execution
-* **Verification:** Test task submitted from Hermes, executed through 7-node graph in 15ms, 4 agents, both features passed. 43/43 tests pass.
-* **Audit Record:** `agents/qwen/audit-trail-2026-06-15-hermes-delegation.md`
-
-### [🟢] Production VM SSH Configuration — vm2
-* **Objective:** Configure real deployment target for SSH deployment pipeline.
-* **Date:** 2026-06-15
-* **Delivered:**
-  - Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`
-  - SSH remote authentication configured for `alwazw@vm2`
-  - `.env` updated with `SSH_DEPLOY_HOST=vm2`, `SSH_DEPLOY_USER=alwazw`, `SSH_DEPLOY_PORT=22`
-  - `docker-compose.yml` wired to pass SSH deployment variables to agent-zero container
-  - `SSHDeployer` module updated to read target host from `SSH_DEPLOY_HOST` env var (defaults to `vm2`)
-* **Next:** Test real SSH deployment from Agent Zero DevOps agent to vm2
+> **Status Keys:** Achieved / Deployed | In Progress / Partial | Pending / Blocker
 
 ---
 
-## 3. Completed Milestones (Achieved)
+## 4. Known Issues
 
-### [🟢] Directory Architecture Hardening
-* **Objective:** Establish isolated workspace and auditing root.
-* **Result:** Host folder `~/docker/agents/qwen` is actively bound and serving as the immutable ground-truth audit trail.
-
-### [🟢] Multi-Agent Architecture Blueprint
-* **Objective:** Define layered architecture (Hermes → Agent OS → Agent Zero).
-* **Result:** Full blueprint documented in `agents/skills/hermes-multi-agent-architecture.md`.
-
-### [🟢] Framework Selection
-* **Objective:** Choose the agent framework for Agent Zero's CEO orchestration layer.
-* **Decision:** **LangGraph** selected over CrewAI and AutoGen.
-
-### [🟢] PoC: CEO Orchestration Graph (Stdlib)
-* **Objective:** Prove the full Agent Zero pipeline works end-to-end before committing to LangGraph dependency.
-* **Location:** `agents/qwen/poc/agent_zero/` (6 modules)
-* **Result:** Zero-dependency Python PoC successfully validated graph topology, contract logic, and audit trail.
-
-### [🟢] LangGraph Production Migration
-* **Objective:** Replace stdlib state graph with real LangGraph `StateGraph` + Pydantic validation.
-* **Location:** `agents/qwen/agent_zero_langgraph/` (12 modules)
-* **Result:** Full LangGraph `StateGraph` with 8 nodes, conditional edges, `MemorySaver` checkpointing, and Pydantic contract models.
-* **Test Suite:** 21/21 tests pass (8 Pydantic, 5 Agent, 6 LangGraph, 3 Audit)
-
-### [🟢] Docker Deployment
-* **Objective:** Build custom Agent Zero image with LangGraph and deploy via docker-compose.
-* **Result:** Custom image `agent-zero-langgraph:latest` with entrypoint wrapper. Container health: **healthy**. API server runs alongside Agent Zero services via supervisord.
-
-### [🟢] Phase 5: Full Integration Stack
-* **Objective:** Connect all external services (LLM, MCP, SSH, Memory) and expose REST API.
-* **Modules Delivered:**
-  | Module | File | Purpose |
-  | :--- | :--- | :--- |
-  | LLM Client | `llm_client.py` | Connects DevAgents to LiteLLM proxy for real code generation |
-  | MCP Client | `mcp_client.py` | Connects agents to MCP tool servers (Filesystem, Git) via MCPO bridge |
-  | SSH Deployer | `ssh_deploy.py` | Key-based SSH deployment with health-check retry and auto-rollback |
-  | Project Memory | `memory.py` | Cross-project context retention (JSON-based vector store) |
-  | REST API | `api.py` | FastAPI delegation endpoints for Hermes → Agent Zero |
-  | API Server | `api_server.py` | Uvicorn runner for the FastAPI app |
-  | HITL Integration | `graph.py` (updated) | LangGraph `interrupt()` for human-in-the-loop contract approval |
-  | Phase 5 Tests | `tests_phase5.py` | 22 integration tests covering all new modules |
-* **Test Results:** 22/22 Phase 5 tests pass:
-  - 3 LLM client tests (init, availability, code generation)
-  - 3 MCP client tests (init, availability, tool listing)
-  - 4 SSH deployer tests (init, key check, simulate deploy, custom key path)
-  - 5 project memory tests (init, store/retrieve, knowledge, list, search)
-  - 6 API endpoint tests (health, list tasks, list projects, submit task, 404 handling)
-  - 1 full integration test (pipeline + memory persistence)
-* **Live API Verification:**
-  - `GET /api/v1/health` → `llm_available: true, mcp_available: true, ssh_key_exists: true`
-  - `POST /api/v1/tasks` → Task completed in 24ms, 5 agents, 3 deduplicated artifacts
-  - `GET /api/v1/tasks` → 1 task listed
-  - `GET /api/v1/projects` → 2 projects in memory (`demo-taskflow`, `test-project`)
-* **Infrastructure Changes:**
-  - `BRANCH=main` added to `.env`
-  - `PORT_AGENTZERO_API=8081` added to `.env`
-  - Entrypoint wrapper (`entrypoint.sh`) starts API server in background alongside Agent Zero
-  - Secrets volume: `../../../secrets:/secrets:ro`
-  - SSH deploy key generated: `/secrets/ssh_deploy_key` (Ed25519)
-  - `LITELLM_MASTER_KEY_FILE: /secrets/litellm_key.txt` for LLM authentication
+| Issue | Severity | Impact | Status |
+| :--- | :--- | :--- | :--- |
+| Traefik Let's Encrypt outbound HTTPS blocked on proxy network | HIGH | TLS certificates cannot be provisioned for automated domain validation | Unresolved |
+| Cloudflared QUIC UDP/7844 blocked by WSL2 | MEDIUM | Running in degraded HTTP/2 mode; tunnel functional but suboptimal latency | Unresolved (WSL2 limitation) |
+| Authentik middleware not configured for Traefik dashboard | LOW | Dashboard lacks SSO protection via Authentik | Pending configuration |
 
 ---
 
-## 4. Current Sprint (In Progress)
+## 5. Completed Milestones (Achieved)
 
-### [🟢] Hermes → Agent Zero Live Delegation ✅
-* **Owner:** Qwen (Architecture)
-* **Objective:** Hermes submits tasks to Agent Zero via `POST http://agent-zero:8080/api/v1/tasks` and polls for completion.
-* **Status:** Complete. Watchdog cron (`*/5 * * * *`) monitors Agent Zero health and task status. Custom skill teaches Hermes the full API. Test task submitted and completed through 7-node graph in 15ms.
-* **Delivered:** Polling script, custom skill, recurring cron job, enhanced task list API.
+### Directory Architecture Hardening
+Host folder `~/docker/agents/qwen` actively bound as the immutable ground-truth audit trail.
 
-### [🟡] Real Code Generation Pipeline
-* **Owner:** Qwen (Architecture)
-* **Objective:** Replace simulated builds with real LLM-generated code, written to project directories via MCP, tested, and committed via MCP Git.
-* **Status:** LLM client wired to DevAgent. `simulate=false` flag triggers real LLM calls. Code generation works; file persistence via MCP pending.
-* **Next:** Wire MCP filesystem `write_file` to persist LLM-generated code to `projects/{name}/` directories.
+### Multi-Agent Architecture Blueprint
+Full blueprint documented in `agents/skills/hermes-multi-agent-architecture.md`.
 
-### [🟡] Upgrade Memory to Qdrant
-* **Owner:** Qwen (Architecture)
-* **Objective:** Replace JSON-based memory with Qdrant vector store for semantic search across projects.
-* **Status:** Qdrant already running in Docker. `ProjectMemory` module has clean interface for swap.
-* **Next:** Add `qdrant-client` dependency and implement vector embedding for project contexts.
+### Framework Selection
+**LangGraph** selected over CrewAI and AutoGen for Agent Zero CEO orchestration.
+
+### PoC: CEO Orchestration Graph (Stdlib)
+Zero-dependency Python PoC in `agents/qwen/poc/agent_zero/` (6 modules) validated graph topology, contract logic, and audit trail.
+
+### LangGraph Production Migration
+Full LangGraph `StateGraph` with 8 nodes, conditional edges, `MemorySaver` checkpointing, and Pydantic contract models in `agents/qwen/agent_zero_langgraph/` (12 modules). 21/21 tests pass.
+
+### Docker Deployment
+Custom image `agent-zero-langgraph:latest` with entrypoint wrapper. Container health: healthy. API server runs alongside Agent Zero services via supervisord.
+
+### Phase 5: Full Integration Stack (LLM, MCP, SSH, Memory, API, HITL)
+All external services connected. 22/22 Phase 5 tests pass. Live API verification confirms LLM, MCP, SSH, and Memory availability.
+
+### Hermes to Agent Zero Delegation Pipeline
+Hermes submits tasks via `POST http://agent-zero:8080/api/v1/tasks`. Watchdog cron polls every 5 minutes. Custom skill teaches Hermes the full API. Test task completed through 7-node graph in 15ms with 4 agents.
+
+### Infrastructure Hardening & Security Remediation
+All service ports locked to `127.0.0.1` (except traefik 80/443). Monitoring stack deployed. Compose profiles active. Secret management overhauled: `.env` has 0 secrets, all 17 mounted via Docker secrets.
+
+### Deep Validation & SOP Documentation
+17/17 containers passed 4-step deep validation pipeline. Stack Security and Operations Guide (`docs/stack-security-operations-guide.md`) — 661 lines.
+
+### MCP Tool Execution Layer Documentation
+SOP section 11 codified: MCP server usage, boundary restrictions, execution safety constraints, MCPO bridge architecture, mandatory lock protocol, 4-phase deployment roadmap.
+
+### Production VM SSH Configuration (vm2)
+Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`. SSH remote authentication configured for `alwazw@vm2`. Deployer wired to `SSH_DEPLOY_HOST=vm2`.
 
 ---
 
-## 5. Immediate Next Steps (Ordered by Priority)
+## 6. Recent Commit History
 
-1. ✅ **Hermes Cron Delegation** — Complete. Watchdog cron + delegation skill deployed.
-2. 🔲 **MCP Phase 2: Register Filesystem MCP** — Connect `mcp-server-filesystem` to MCPO bridge for Agent Zero code write persistence.
-3. 🔲 **MCP File Write Integration** — Wire DevAgent to write LLM-generated code to project directories via MCP filesystem.
-4. 🔲 **MCP Git Integration** — Auto-commit generated code via MCP git server after sandbox verification.
-5. 🔲 **MCP Phase 3: Register Docker MCP** — Connect `docker-mcp` for autonomous container lifecycle management.
-6. 🔲 **Qdrant Memory Upgrade** — Swap JSON memory backend with Qdrant vector store for semantic search.
-7. 🔲 **API Authentication** — Add API key authentication to Agent Zero REST endpoints (required before external access).
-8. 🔲 **Real SSH Deployment Test** — Agent Zero DevOps agent deploys to `vm2` (Ubuntu Server 26.04 WSL) via SSH with key-based auth. VM configured, SSH auth ready.
-9. 🔲 **Observability Wiring** — Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring.
-10. 🔲 **CI/CD Pipeline Testing** — Alpha test automated project management components in parallel with production processes. Duplicated effort expected and accepted during validation phase.
+| Commit | Description |
+| :--- | :--- |
+| `5368dfd` | 33 containers up (32 defined + cloudflared-installer) |
+| `3daef95` | Fix postgres healthcheck dual fallback |
+| `06e566d` | Fix cloudflared outbound + installer cleanup |
+| `04cb8bf` | Remove loki healthcheck (scratch image) |
+| `950da4d` | Fix hermes network (agent-communication for pypi) |
+| `ab0816c` | Final service integration — all 31 services running |
+| `82595a4` | Add 16 new services + integration test framework |
+| `b009ad0` | Fix critical secret management architecture |
+| `6eee469` | Fix inter-container networking |
 
 ---
 
-## 6. Alpha Testing Horizon
+## 7. Current Sprint (In Progress)
+
+### Real Code Generation Pipeline
+**Owner:** Qwen (Architecture)
+Replace simulated builds with real LLM-generated code, written to project directories via MCP, tested, and committed via MCP Git.
+**Status:** LLM client wired to DevAgent. `simulate=false` flag triggers real LLM calls. Code generation works; file persistence via MCP pending.
+**Next:** Wire MCP filesystem `write_file` to persist LLM-generated code to `projects/{name}/` directories.
+
+### Upgrade Memory to Qdrant
+**Owner:** Qwen (Architecture)
+Replace JSON-based memory with Qdrant vector store for semantic search across projects.
+**Status:** Qdrant already running in Docker. `ProjectMemory` module has clean interface for swap.
+**Next:** Add `qdrant-client` dependency and implement vector embedding for project contexts.
+
+### Omniroute Alibaba Provider Integration
+**Owner:** Qwen (Architecture)
+Add Alibaba Cloud provider to Omniroute routing layer.
+**Status:** API key created (`omniroute_api_key.txt`). Provider configuration pending.
+**Next:** Add provider via Omniroute web UI.
+
+---
+
+## 8. Immediate Next Steps (Ordered by Priority)
+
+| # | Item | Status | Details |
+| :--- | :--- | :--- | :--- |
+| 1 | **MCP Phase 2: Register Filesystem MCP** | Pending | Connect `mcp-server-filesystem` to MCPO bridge for Agent Zero code write persistence. |
+| 2 | **MCP File Write Integration** | Pending | Wire DevAgent to write LLM-generated code to project directories via MCP filesystem. |
+| 3 | **MCP Git Integration** | Pending | Auto-commit generated code via MCP git server after sandbox verification. |
+| 4 | **Qdrant Memory Upgrade** | Pending | Swap JSON memory backend with Qdrant vector store for semantic search. Qdrant running; needs client integration. |
+| 5 | **API Authentication** | Pending | Add API key authentication to Agent Zero REST endpoints (required before external access). |
+| 6 | **Real SSH Deployment Test** | Pending | Agent Zero DevOps agent deploys to `vm2` via SSH with key-based auth. VM configured, SSH auth ready. |
+| 7 | **Observability Wiring** | Pending | Connect Prometheus scrape targets to Grafana dashboards for agent execution monitoring. |
+| 8 | **Cloudflared QUIC Fix** | Pending | WSL2 UDP/7844 outbound blocked — investigate workaround or accept degraded HTTP/2 mode. |
+| 9 | **Omniroute Alibaba Providers** | Pending | Add via web UI. API key ready. |
+| 10 | **CI/CD Pipeline Testing** | Pending | Alpha test parallel validation alongside production processes. Duplicated effort accepted. |
+
+---
+
+## 9. Alpha Testing Horizon
 
 **Status:** Environment prepared for parallel validation.
 
-The infrastructure hardening milestone established the prerequisites for alpha testing:
+Alpha phase verification tests run alongside production processes. Duplicated effort ensures absolute system reliability. Longer execution reporting times are accepted during this validation phase.
+
+**Prerequisites established:**
 - Monitoring stack (Prometheus, Grafana, Uptime Kuma) provides observability for test validation
 - Compose profiles enable isolated testing of individual stacks
 - Port isolation ensures safe parallel execution without external exposure
 
-**Parallel execution note:** Alpha phase verification tests will run alongside production processes. This is intentional — duplicated effort ensures absolute system reliability. Longer execution reporting times are accepted during this validation phase.
-
 **First alpha targets:**
-- Hermes → Agent Zero delegation loop (cron-based task submission and polling)
+- Hermes to Agent Zero delegation loop (cron-based task submission and polling)
 - MCP filesystem write persistence (LLM-generated code committed to project directories)
 - API authentication gate (protect endpoints before any remote access configuration)
 
 ---
 
-## 7. Architecture Decision Log
+## 10. Architecture Decision Log
 
 | Date | Decision | Options Considered | Rationale |
 | :--- | :--- | :--- | :--- |
@@ -227,13 +247,14 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | 2026-06-15 | **Ed25519 SSH keys** | RSA, Ed25519, ECDSA | Modern, fast, smallest key size; standard for automated deployments |
 | 2026-06-15 | **127.0.0.1 for all local services** | 0.0.0.0, 127.0.0.1, per-service | Security-first default; only reverse proxy (traefik) needs public binding |
 | 2026-06-15 | **Docker Compose profiles** | Single compose file, profiles, separate files | Profiles give selective startup without file proliferation |
-| 2026-06-15 | **Docker secrets for WEBUI key** | Env var, file mount, Docker secret | Secret mount avoids plaintext in .env; survives container restarts |
+| 2026-06-15 | **Docker secrets for all credentials** | .env vars, file mounts, Docker secrets | Zero secrets in .env; all 17 secrets mounted via Docker secrets section |
 | 2026-06-15 | **Watchdog cron `--no-agent`** | Full agent cron, no-agent script | Zero LLM cost for monitoring; agent mode reserved for intelligent delegation |
 | 2026-06-15 | **Hermes custom skill for delegation** | MCP tool, webhook, REST API skill | Skill approach teaches Hermes the full API; reusable across sessions |
+| 2026-06-16 | **Postgres healthcheck dual fallback** | Single healthcheck, dual fallback | Handles both Docker TCP health probe and internal pg_isready |
 
 ---
 
-## 8. File Index
+## 11. File Index
 
 | Path | Purpose |
 | :--- | :--- |
@@ -244,16 +265,13 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | `agents/qwen/agent_zero_langgraph/llm_client.py` | LiteLLM proxy client |
 | `agents/qwen/agent_zero_langgraph/mcp_client.py` | MCP tool server client |
 | `agents/qwen/agent_zero_langgraph/ssh_deploy.py` | SSH deployment module |
-| `agents/qwen/agent_zero_langgraph/memory.py` | Cross-project vector memory |
+| `agents/qwen/agent_zero_langgraph/memory.py` | Cross-project vector memory (JSON, upgradeable to Qdrant) |
 | `agents/qwen/agent_zero_langgraph/tests_phase5.py` | Phase 5 integration tests (22 tests) |
 | `agents/qwen/execution-graph.json` | Live graph execution state |
 | `agents/qwen/agent-registry.json` | Active sub-agents and their roles |
 | `agents/qwen/deployment-log.jsonl` | Append-only deployment event log |
 | `agents/qwen/decision-tree.md` | Human-readable decision log per contract |
-| `agents/qwen/audit-trail-2026-06-15-infra-hardening.md` | Audit trail for infrastructure hardening session |
-| `agents/qwen/audit-trail-2026-06-15-deep-validation.md` | Deep validation report: 17-container log scrutiny |
-| `agents/qwen/audit-trail-2026-06-15-hermes-delegation.md` | Audit trail for Hermes → Agent Zero delegation pipeline |
-| `agents/qwen/suggestions-and-upgrades.md` | Triage & upgrade tracking (20 issues, prioritized) |
+| `agents/qwen/suggestions-and-upgrades.md` | Triage and upgrade tracking |
 | `agents/main-system-gap-analysis.md` | This file — master index |
 | `agents/skills/hermes-multi-agent-architecture.md` | Architecture blueprint |
 | `docs/stack-security-operations-guide.md` | Stack Security and Operations Guide (SOP) |
@@ -263,5 +281,5 @@ The infrastructure hardening milestone established the prerequisites for alpha t
 | `compose/ai/agent-zero/scripts/hermes_delegate.sh` | Hermes watchdog polling script |
 | `compose/ai/agent-zero/scripts/agent-zero-skill.md` | Delegation skill source (deployed to Hermes) |
 | `projects/template/` | Project directory template |
-| `secrets/ssh_deploy_key` | Ed25519 SSH deploy key |
-| `secrets/litellm_key.txt` | LiteLLM master API key |
+| `secrets/` | All 17+ secret files (no secrets in .env) |
+| `docker-compose.yml` | Single compose file — 31 services, 7 profiles, 17 secrets |
