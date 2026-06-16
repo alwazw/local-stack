@@ -617,3 +617,62 @@ curl -s http://127.0.0.1:<port>/health | python3 -m json.tool
 - When creating a custom Dockerfile in a subdirectory, always update the root compose's `image:` reference
 - Keep environment variables, volumes, and port mappings in sync between root and subdirectory compose files
 - Use the subdirectory compose file as the canonical reference for service-specific config
+
+## 23. Docker bridge network inter-container forwarding broken (WSL2/Docker Desktop)
+
+After container restarts on WSL2/Docker Desktop, Docker bridge networks can silently lose inter-container forwarding. DNS resolution works, but TCP connections between containers on the same network time out.
+
+### Symptoms
+- `docker exec container-A ping container-B` fails (ICMP blocked) or times out
+- `docker exec container-A curl http://container-B:<port>` times out with exit code 28
+- `docker exec container-A python3 -c "import socket; s.connect(('container-B', <port>))"` → `TimeoutError`
+- Containers show as `healthy` individually but can't talk to each other
+- The bridge interface (`br-<hash>`) shows `state UP` in `ip link show`
+- `iptables -L DOCKER-FORWARD -v -n` shows no ACCEPT rules for the specific bridge interface
+
+### Root cause
+Docker Desktop's WSL2 backend loses iptables FORWARD chain entries for specific bridge interfaces after container restarts. The `DOCKER-FORWARD` chain has a `policy DROP` and only has rules for `docker0` and a subset of bridge interfaces. New or restarted containers on other bridges get dropped.
+
+### Diagnosis
+```bash
+# Check which bridge interface corresponds to the network:
+docker network inspect <network-name> --format '{{.Id}}'
+ip link show | grep br-<first-12-chars-of-id>
+
+# Check if the bridge has iptables rules:
+sudo iptables -L DOCKER-FORWARD -v -n | grep br-<hash>
+# If empty → that's the problem
+
+# Verify by testing from a container on the affected network:
+docker exec <container> python3 -c "import socket; s=socket.socket(); s.settimeout(3); s.connect(('<target>', <port>))"
+```
+
+### Fix
+Add iptables ACCEPT and DOCKER rules for the affected bridge interfaces:
+```bash
+# Find the bridge interface name:
+BRIDGE_AIML="br-1813ea894891"    # ai-ml network
+BRIDGE_DB="br-a661348a0ada"      # database network
+
+# Add FORWARD ACCEPT rules (insert at position 3/4 to run before DROP):
+sudo iptables -I DOCKER-FORWARD 3 -i $BRIDGE_AIML -j ACCEPT
+sudo iptables -I DOCKER-FORWARD 4 -i $BRIDGE_DB -j ACCEPT
+
+# Add DOCKER chain routing for port publishing:
+sudo iptables -I DOCKER-BRIDGE 2 -i $BRIDGE_AIML -j DOCKER
+sudo iptables -I DOCKER-BRIDGE 3 -i $BRIDGE_DB -j DOCKER
+```
+
+### Verification
+```bash
+# Test connectivity after fix:
+docker exec <container-A> python3 -c "import socket; s=socket.socket(); s.settimeout(3); s.connect(('<container-B>', <port>)); print('connected'); s.close()"
+```
+
+### Permanent fix
+- Restart Docker Desktop service (resets all iptables rules correctly)
+- Or recreate the affected network: `docker network rm <name> && docker network create <name>`
+- These iptables rules are lost on Docker restart — consider adding them to a startup script
+
+### Why reconnecting containers doesn't help
+`docker network disconnect` + `docker network connect` only reassigns the container's veth pair to the bridge. If the bridge itself has no iptables FORWARD rules, traffic still gets dropped at the `DOCKER-FORWARD` chain.
