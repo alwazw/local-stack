@@ -34,6 +34,102 @@ Autonomous Engineer Framework v3 — Docker Compose Stack
 
 ---
 
+## Terraform Operations
+
+The AEF3 stack is managed via Terraform as the single source of truth.
+
+### Terraform Directory
+All Terraform configuration is in `terraform/`:
+```
+terraform/
+├── providers.tf          # Docker provider (kreuzwerker/docker v3.x)
+├── variables.tf          # Input variables
+├── outputs.tf            # Service URLs, infrastructure summary
+├── networks.tf           # 6 Docker networks
+├── volumes.tf            # 16 named volumes
+├── secrets.tf            # Secret file path mappings
+├── terraform.tfvars      # Environment values
+├── modules/service/      # Reusable container module
+└── services/             # 8 service definition files
+```
+
+### Initialize
+```bash
+cd terraform/
+terraform init
+```
+
+### Validate Configuration
+```bash
+terraform validate
+```
+
+### Preview Changes
+```bash
+terraform plan              # Show what would change
+terraform plan -out=tfplan  # Save plan for apply
+```
+
+### Deploy Infrastructure
+```bash
+terraform apply             # Apply with interactive confirmation
+terraform apply -auto-approve  # Non-interactive
+terraform apply tfplan      # Apply saved plan
+```
+
+### View Outputs
+```bash
+terraform output                    # All outputs
+terraform output service_endpoints  # Public URLs
+terraform output local_endpoints    # Localhost URLs
+terraform output -json infrastructure_summary  # Stack summary
+```
+
+### Import Existing Resources
+When migrating from Docker Compose:
+```bash
+# Import networks
+terraform import docker_network.ai_ml ai-ml
+terraform import docker_network.agent_communication agent-communication
+terraform import docker_network.proxy proxy
+terraform import docker_network.database database
+terraform import docker_network.security security
+terraform import docker_network.monitoring monitoring
+
+# Import volumes
+terraform import docker_volume.<name> <name>
+# Repeat for all 16 volumes
+```
+
+### State Management
+```bash
+terraform state list                    # List managed resources
+terraform state show docker_network.proxy  # Show resource details
+terraform state rm docker_network.proxy    # Remove from state (doesn't delete)
+terraform refresh                       # Sync state with real infrastructure
+```
+
+### Drift Detection
+```bash
+terraform plan  # Shows any differences between state and real infrastructure
+# No changes = infrastructure matches configuration
+```
+
+### Adding a New Service via Terraform
+1. Add service definition to appropriate file in `terraform/services/`
+2. Use the module pattern or direct `docker_container` resource
+3. Add networks with `networks_advanced { name = docker_network.<name>.name }`
+4. Mount secrets as volumes: `volumes { host_path = local.secret_files.<name>; container_path = "/run/secrets/<name>"; read_only = true }`
+5. Run `terraform validate && terraform plan`
+6. Run `terraform apply`
+
+### Lifecycle Notes
+- Networks have `lifecycle { ignore_changes = [labels] }` to prevent recreation
+- One-shot containers (cloudflared-installer) have `lifecycle { ignore_changes = [all] }`
+- Secrets are bind-mounted files (not Docker Swarm secrets) for non-Swarm compatibility
+
+---
+
 ## 2. Startup Procedures
 
 ### Prerequisites

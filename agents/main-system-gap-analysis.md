@@ -10,6 +10,49 @@
 | **Framework** | **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers. |
 | **Infrastructure** | 31 services defined, 31 running, 26 healthy, 5 no-healthcheck (cloudflared, dozzle, loki, portainer, promtail). 7 compose profiles. 12 networks. 17 Docker secrets. |
 
+**Infrastructure as Code (Terraform)**
+- **Status:** Production-ready
+- **Provider:** kreuzwerker/docker v3.x
+- **State:** Local backend (terraform/terraform.tfstate)
+- **Managed resources:** 6 networks, 16 volumes (22 total)
+- **Imported from:** Existing Docker Compose deployment
+- **Validation:** `terraform validate`, `terraform plan` shows no drift
+
+**Terraform directory structure:**
+```
+terraform/
+├── providers.tf          # Docker provider configuration
+├── variables.tf          # Input variables (domain, timezone, etc.)
+├── outputs.tf            # Service URLs and infrastructure summary
+├── networks.tf           # 6 Docker networks with lifecycle rules
+├── volumes.tf            # 16 named volumes
+├── secrets.tf            # Secret file path mappings (non-Swarm)
+├── terraform.tfvars      # Environment-specific values
+├── modules/
+│   └── service/          # Reusable service module
+│       ├── main.tf
+│       └── outputs.tf
+└── services/             # Service definitions by category
+    ├── infrastructure.tf # traefik, postgres, redis
+    ├── ai-core.tf        # 10 AI services
+    ├── security.tf       # 3 security services
+    ├── monitoring.tf     # 7 monitoring services
+    ├── management.tf     # 3 management services
+    ├── ci-cd.tf          # 2 CI/CD services
+    ├── productivity.tf   # 2 productivity services
+    └── network.tf        # 2 network services
+```
+
+**Commands:**
+```bash
+cd terraform/
+terraform init          # Initialize provider
+terraform validate      # Validate configuration
+terraform plan          # Preview changes
+terraform apply         # Deploy infrastructure
+terraform output        # View service URLs
+```
+
 ---
 
 ## 2. Infrastructure Inventory
@@ -146,6 +189,11 @@ Hermes submits tasks via `POST http://agent-zero:8080/api/v1/tasks`. Watchdog cr
 ### Infrastructure Hardening & Security Remediation
 All service ports locked to `127.0.0.1` (except traefik 80/443). Monitoring stack deployed. Compose profiles active. Secret management overhauled: `.env` has 0 secrets, all 17 mounted via Docker secrets.
 
+- Terraform state management with local backend
+- Lifecycle ignore_changes for networks (prevent recreation)
+- Secret file path mapping without Docker Swarm
+- Service module for reusable container definitions
+
 ### Deep Validation & SOP Documentation
 17/17 containers passed 4-step deep validation pipeline. Stack Security and Operations Guide (`docs/stack-security-operations-guide.md`) — 661 lines.
 
@@ -174,6 +222,9 @@ Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`. SSH remote authe
 ---
 
 ## 7. Current Sprint (In Progress)
+
+### Infrastructure as Code (Terraform)
+Infrastructure as Code (Terraform) — 22 resources managed, all imported from existing deployment
 
 ### Real Code Generation Pipeline
 **Owner:** Qwen (Architecture)
