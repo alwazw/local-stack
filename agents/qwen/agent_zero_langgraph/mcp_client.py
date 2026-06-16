@@ -34,18 +34,17 @@ class MCPClient:
             return {"status": "error", "error": f"{type(e).__name__}: {str(e)[:200]}", "tools": []}
 
     def call_tool(self, server: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Call a specific MCP tool on a specific server."""
-        payload = {
-            "tool": tool_name,
-            "arguments": arguments,
-        }
-
+        """Call a specific MCP tool on a specific server.
+        
+        MCPO exposes each tool as a direct POST endpoint:
+          POST /{server}/{tool_name}
+        NOT as /{server}/tools/call
+        """
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                # MCPO exposes each MCP server at /{server_name}/
                 response = client.post(
-                    f"{self.base_url}/{server}/tools/call",
-                    json=payload,
+                    f"{self.base_url}/{server}/{tool_name}",
+                    json=arguments,
                 )
                 response.raise_for_status()
                 return {"status": "ok", "result": response.json()}
@@ -80,13 +79,41 @@ class MCPClient:
         """List directory via MCP filesystem server."""
         return self.call_tool("filesystem", "list_directory", {"path": path})
 
-    def git_status(self, repo_path: str) -> dict[str, Any]:
+    def git_status(self, repo_path: str = ".") -> dict[str, Any]:
         """Get git status via MCP git server."""
         return self.call_tool("git", "git_status", {"repo_path": repo_path})
 
-    def git_commit(self, repo_path: str, message: str) -> dict[str, Any]:
+    def git_log(self, repo_path: str = ".", n: int = 10) -> dict[str, Any]:
+        """Get git log via MCP git server."""
+        return self.call_tool("git", "git_log", {"repo_path": repo_path, "n": n})
+
+    def git_diff(self, repo_path: str = ".", staged: bool = False) -> dict[str, Any]:
+        """Get git diff via MCP git server."""
+        return self.call_tool("git", "git_diff", {"repo_path": repo_path, "staged": staged})
+
+    def git_commit(self, repo_path: str = ".", message: str = "") -> dict[str, Any]:
         """Create a git commit via MCP git server."""
         return self.call_tool("git", "git_commit", {"repo_path": repo_path, "message": message})
+
+    def git_add(self, repo_path: str = ".", files: str = ".") -> dict[str, Any]:
+        """Stage files via MCP git server."""
+        return self.call_tool("git", "git_add", {"repo_path": repo_path, "files": files})
+
+    def git_branch(self, repo_path: str = ".") -> dict[str, Any]:
+        """List branches via MCP git server."""
+        return self.call_tool("git", "git_branch", {"repo_path": repo_path})
+
+    def git_checkout(self, repo_path: str = ".", branch: str = "") -> dict[str, Any]:
+        """Checkout branch via MCP git server."""
+        return self.call_tool("git", "git_checkout", {"repo_path": repo_path, "branch": branch})
+
+    def git_create_branch(self, repo_path: str = ".", branch: str = "", from_branch: str = "main") -> dict[str, Any]:
+        """Create branch via MCP git server."""
+        return self.call_tool("git", "git_create_branch", {"repo_path": repo_path, "branch": branch, "from_branch": from_branch})
+
+    def git_push(self, repo_path: str = ".", remote: str = "origin", branch: str = "") -> dict[str, Any]:
+        """Push to remote via MCP git server."""
+        return self.call_tool("git", "git_push", {"repo_path": repo_path, "remote": remote, "branch": branch})
 
     def is_available(self) -> bool:
         """Check if MCPO bridge is reachable."""

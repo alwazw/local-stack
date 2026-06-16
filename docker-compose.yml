@@ -26,6 +26,7 @@ services:
       SSH_KEY_PATH: "/run/secrets/ssh_deploy_key"
       SSH_USER: "deploy"
       LITELLM_MASTER_KEY_FILE: "/run/secrets/litellm_key"
+      AGENT_ZERO_API_KEY_FILE: "/run/secrets/agent_zero_key"
     volumes:
       - ./compose/ai/agent-zero/data:/app/data
       - ./compose/ai/agent-zero/work_dir:/app/work_dir
@@ -40,6 +41,7 @@ services:
     secrets:
       - litellm_key
       - ssh_deploy_key
+      - agent_zero_key
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Agent-Zero"
@@ -101,6 +103,7 @@ services:
     volumes:
       - ./compose/ai/mcpo/config.json:/app/config.json:ro
       - ./compose/ai/mcpo/filesystem_server.py:/app/filesystem_server.py:ro
+      - ./compose/ai/mcpo/git_server.py:/app/git_server.py:ro
       - ./projects:/workspace
     ports:
       - "127.0.0.1:${PORT_MCPO}:8000"

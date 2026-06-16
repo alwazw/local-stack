@@ -6,6 +6,13 @@
       "env": {
         "FILESYSTEM_WORKSPACE": "/workspace"
       }
+    },
+    "git": {
+      "command": "python3",
+      "args": ["/app/git_server.py"],
+      "env": {
+        "GIT_WORKSPACE": "/workspace"
+      }
     }
   }
 }

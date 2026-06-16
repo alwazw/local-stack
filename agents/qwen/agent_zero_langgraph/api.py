@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
@@ -37,7 +37,39 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# In-memory task store (upgrade to DB in production)
+# ── API Key / Auth ─────────────────────────────────────────────────
+
+def _load_api_key() -> str:
+    """Load API key from env var or secret file. Called on each request."""
+    key = os.environ.get("AGENT_ZERO_API_KEY", "")
+    if not key:
+        key_file = os.environ.get("AGENT_ZERO_API_KEY_FILE", "/run/secrets/agent_zero_key")
+        if os.path.exists(key_file):
+            try:
+                key = open(key_file).read().strip()
+            except Exception:
+                pass
+    return key
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    api_key = _load_api_key()
+    if not api_key:  # No key set = dev mode, allow all
+        return await call_next(request)
+    public_paths = {"/api/v1/health", "/docs", "/openapi.json", "/redoc"}
+    if request.url.path in public_paths:
+        return await call_next(request)
+    auth = request.headers.get("Authorization", "")
+    if auth != f"Bearer {api_key}":
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid or missing API key"},
+        )
+    return await call_next(request)
+
+
+# ── In-memory task store ───────────────────────────────────────────
 _tasks: dict[str, dict[str, Any]] = {}
 _task_lock = threading.Lock()
 
