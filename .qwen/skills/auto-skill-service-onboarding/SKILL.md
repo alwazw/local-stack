@@ -1,13 +1,40 @@
 ---
 name: service-onboarding
-description: Procedure for onboarding new Docker Compose services — profile gating, network wiring, Traefik routing, Homepage labels, secrets mounting, and integration testing
+description: Procedure for onboarding new Docker Compose services — modular include pattern, profile gating, network wiring, Traefik routing, Homepage labels, secrets mounting, and integration testing
 source: auto-skill
 extracted_at: '2026-06-15T18:30:00.000Z'
 ---
 
 # Docker Compose Service Onboarding
 
-**Core principle:** Every new service follows a standard template with profile gating, network assignment, Traefik routing, Homepage discovery labels, Docker secrets mounting, and health checks.
+**Core principle:** Every service has its OWN compose file under `compose/<category>/<service>/docker-compose.yml`. The root `docker-compose.yml` contains ONLY `include:` directives and `secrets:` definitions — **NEVER** service definitions.
+
+## Architecture: Modular Include Pattern
+
+```
+docker-compose.yml          ← ONLY include: + secrets: (NO services)
+compose/
+├── ai/agent-zero/docker-compose.yml
+├── ai/litellm/docker-compose.yml
+├── ci/gitea/docker-compose.yml
+├── monitoring/loki/docker-compose.yml
+├── network/traefik/docker-compose.yml
+├── security/vaultwarden/docker-compose.yml
+└── ... (one compose file per service)
+```
+
+**Root `docker-compose.yml` structure:**
+```yaml
+version: "3.8"
+include:
+  - compose/network/traefik/docker-compose.yml
+  - compose/ai/agent-zero/docker-compose.yml
+  # ... one per service (31 total)
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password.txt }
+  # ... all 17 secret file mappings
+```
 
 ## Service Directory Structure
 
@@ -15,20 +42,16 @@ Each service gets its own directory under `compose/<category>/<service>/`:
 
 ```
 compose/
-├── ai/qdrant/docker-compose.yml          # Sub-compose (reference only)
+├── ai/qdrant/docker-compose.yml
 ├── ci/gitea/docker-compose.yml
 ├── monitoring/loki/
 │   ├── docker-compose.yml
-│   └── config.yaml                        # Service-specific config
-├── management/homepage/
-│   └── docker-compose.yml
+│   └── config.yaml
+├── network/traefik/
+│   ├── docker-compose.yml
+│   └── entrypoint-wrapper.sh
 └── productivity/guacamole/docker-compose.yml
 ```
-
-Sub-compose files are **reference only** — the root `docker-compose.yml` is the single source of truth. Sub-composes exist for:
-- Service-specific configuration files (configs, scripts, Dockerfiles)
-- Documentation and audit trails
-- Easy copy-paste for standalone deployment
 
 ## Profile System
 

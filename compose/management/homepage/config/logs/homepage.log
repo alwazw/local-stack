@@ -1,1 +1,17 @@
 [2026-06-15T18:36:10.230Z] info: kubernetes.yaml was copied to the config folder
+[2026-06-16T18:11:25.990Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.685Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.689Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.694Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.699Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.704Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.707Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.726Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.814Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.823Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.832Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:26.869Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:49.282Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:11:49.285Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:12:50.084Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
+[2026-06-16T18:12:50.089Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.

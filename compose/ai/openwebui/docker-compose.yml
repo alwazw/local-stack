@@ -7,8 +7,12 @@ services:
     restart: unless-stopped
     profiles: [ai]
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      WEBUI_SECRET_KEY_FILE: /run/secrets/webui_secret_key
+#      OLLAMA_BASE_URL: http://ollama:11434
+#      WEBUI_SECRET_KEY_FILE: /run/secrets/webui_secret_key
+# Use host-gateway to exit the Open WebUI container and hit your laptop's port 8642
+      OPENAI_API_BASE_URL: "http://host.docker.internal:8642/v1"
+      OPENAI_API_KEY: "your-super-secret-key-here" # Must match the key from Step 1!
+      ENABLE_OLLAMA_API: "false"
     ports:
       - "127.0.0.1:${PORT_OPENWEBUI}:8080"
     volumes:
@@ -26,6 +30,8 @@ services:
       - "homepage.group=AI"
       - "homepage.name=OpenWebUI"
       - "homepage.href=https://chat.${DOMAIN}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   proxy:
