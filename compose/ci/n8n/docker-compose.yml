@@ -1,7 +1,5 @@
-# n8n — Workflow automation platform
-# Profile: ci
-# Network: proxy, database
-# Port: 5678
+version: "3.8"
+
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -10,7 +8,6 @@ services:
     profiles: [ci]
     environment:
       N8N_HOST: "n8n.${DOMAIN}"
-      N8N_PORT: "5678"
       N8N_PROTOCOL: "https"
       N8N_EDITOR_BASE_URL: "https://n8n.${DOMAIN}/"
       N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_key
@@ -50,3 +47,19 @@ services:
       - "homepage.icon=n8n.png"
       - "homepage.href=https://n8n.${DOMAIN}"
       - "homepage.description=Workflow automation platform"
+
+networks:
+  proxy:
+    external: true
+  database:
+    external: true
+
+volumes:
+  n8n_data:
+    external: true
+
+secrets:
+  n8n_key:
+    external: true
+  postgres_password:
+    external: true

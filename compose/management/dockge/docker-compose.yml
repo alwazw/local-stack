@@ -1,7 +1,5 @@
-# Dockge — Docker Compose management UI (self-hosted)
-# Profile: management
-# Network: proxy
-# Port: 5001
+version: "3.8"
+
 services:
   dockge:
     image: louislam/dockge:latest
@@ -9,11 +7,10 @@ services:
     restart: unless-stopped
     profiles: [management]
     environment:
-      DOCKGE_STACKS_DIR: /home/alwazw/docker
+      DOCKGE_STACKS_DIR: /opt/stacks
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dockge_data:/app/data
-      - /home/alwazw/docker:/home/alwazw/docker
     ports:
       - "127.0.0.1:${PORT_DOCKGE:-5001}:5001"
     networks:
@@ -29,3 +26,11 @@ services:
       - "homepage.icon=dockge.png"
       - "homepage.href=https://dockge.${DOMAIN}"
       - "homepage.description=Docker Compose management UI"
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  dockge_data:
+    external: true

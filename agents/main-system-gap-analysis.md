@@ -8,7 +8,13 @@
 | **Target Objective** | Establish fully autonomous, multi-project full-stack deployments managed by Agent Zero under Hermes' direction. |
 | **Last Updated** | 2026-06-16 |
 | **Framework** | **LangGraph** for Agent Zero orchestration with lightweight custom sub-agent wrappers. |
-| **Infrastructure** | 31 services defined, 31 running, 26 healthy, 5 no-healthcheck (cloudflared, dozzle, loki, portainer, promtail). 7 compose profiles. 12 networks. 17 Docker secrets. |
+| **Infrastructure** | Modular composable architecture: root `docker-compose.yml` contains only `include:` directives, secrets, and networks. 31 services each defined in their own `compose/<category>/<service>/docker-compose.yml`. 8 categories. 7 compose profiles. 12 networks. 17 Docker secrets. |
+
+**Modular Compose Architecture**
+- **Root file** (`docker-compose.yml`): orchestration only — `include:` directives, 17 secrets, 12 networks. Zero service definitions.
+- **31 individual compose files** under `compose/<category>/<service>/docker-compose.yml` — one per service.
+- **8 categories**: `ai` (10), `ci` (3), `data` (2), `management` (3), `monitoring` (7), `network` (2), `productivity` (4), `security` (4).
+- **Selective startup**: `docker compose --profile <name> up -d` pulls only the relevant include files.
 
 **Infrastructure as Code (Terraform)**
 - **Status:** Production-ready
@@ -39,7 +45,7 @@ terraform/
     ├── monitoring.tf     # 7 monitoring services
     ├── management.tf     # 3 management services
     ├── ci-cd.tf          # 2 CI/CD services
-    ├── productivity.tf   # 2 productivity services
+    ├── productivity.tf   # 2 productivity service
     └── network.tf        # 2 network services
 ```
 
@@ -57,47 +63,97 @@ terraform output        # View service URLs
 
 ## 2. Infrastructure Inventory
 
-### 2.1 Service Status
+### 2.1 Architecture: Modular Compose
+
+Root `docker-compose.yml` contains **only** `include:` directives, secrets, and networks. No service definitions exist in the root file. Each service is independently defined in its own compose file:
+
+```
+compose/
+├── ai/
+│   ├── agent-zero/docker-compose.yml
+│   ├── hermes-agent/docker-compose.yml
+│   ├── hermes/docker-compose.yml
+│   ├── litellm/docker-compose.yml
+│   ├── mcpo/docker-compose.yml
+│   ├── ollama/docker-compose.yml
+│   ├── omniroute/docker-compose.yml
+│   ├── openwebui/docker-compose.yml
+│   ├── qdrant/docker-compose.yml
+│   └── searxng/docker-compose.yml
+├── ci/
+│   ├── gitea/docker-compose.yml
+│   ├── n8n/docker-compose.yml
+│   └── woodpecker/docker-compose.yml
+├── data/
+│   ├── postgres/docker-compose.yml
+│   └── redis/docker-compose.yml
+├── management/
+│   ├── dockge/docker-compose.yml
+│   ├── homepage/docker-compose.yml
+│   └── portainer/docker-compose.yml
+├── monitoring/
+│   ├── cadvisor/docker-compose.yml
+│   ├── dozzle/docker-compose.yml
+│   ├── grafana/docker-compose.yml
+│   ├── loki/docker-compose.yml
+│   ├── prometheus/docker-compose.yml
+│   ├── promtail/docker-compose.yml
+│   └── uptime-kuma/docker-compose.yml
+├── network/
+│   ├── cloudflared/docker-compose.yml
+│   └── traefik/docker-compose.yml
+├── productivity/
+│   ├── affine/docker-compose.yml
+│   ├── guacd/docker-compose.yml
+│   ├── guacamole/docker-compose.yml
+│   └── plane/docker-compose.yml
+└── security/
+    ├── authentik-server/docker-compose.yml
+    ├── authentik-worker/docker-compose.yml
+    └── vaultwarden/docker-compose.yml
+```
+
+### 2.2 Service Status
 
 | Metric | Count |
 | :--- | :--- |
-| Services defined | 31 |
+| Compose files (individual services) | 31 |
 | Services running | 31 |
 | Services healthy | 26 |
 | No healthcheck | 5 (cloudflared, dozzle, loki, portainer, promtail) |
 
-### 2.2 Services by Category
+### 2.3 Services by Category
 
-| Category | Services | Profile |
-| :--- | :--- | :--- |
-| **Infrastructure** | traefik, postgres, redis | — (core) |
-| **AI Core** | agent-zero, hermes-agent, hermes, litellm, ollama, mcpo, omniroute, openwebui, qdrant, searxng | `ai` (default) |
-| **Security** | authentik-server, authentik-worker, vaultwarden | `security` |
-| **Monitoring** | prometheus, grafana, uptime-kuma, loki, promtail, cadvisor, dozzle | `monitoring` |
-| **Management** | portainer, dockge, homepage | `management` |
-| **CI/CD** | gitea, n8n | `ci` |
-| **Productivity** | guacd, guacamole | `productivity` |
-| **Network** | cloudflared | `network` |
+| Category | Services | Profile | Compose files |
+| :--- | :--- | :--- | :--- |
+| **AI** | agent-zero, hermes-agent, hermes, litellm, mcpo, ollama, omniroute, openwebui, qdrant, searxng | `ai` (default) | 10 |
+| **CI/CD** | gitea, n8n, woodpecker | `ci` | 3 |
+| **Data** | postgres, redis | — (core) | 2 |
+| **Management** | portainer, dockge, homepage | `management` | 3 |
+| **Monitoring** | prometheus, grafana, uptime-kuma, loki, promtail, cadvisor, dozzle | `monitoring` | 7 |
+| **Network** | traefik, cloudflared | `network` | 2 |
+| **Productivity** | affine, guacd, guacamole, plane | `productivity` | 4 |
+| **Security** | authentik-server, authentik-worker, authentik, vaultwarden | `security` | 4 |
 
-### 2.3 Compose Profiles (7)
+### 2.4 Compose Profiles (7)
 
 `ai` (default), `security`, `monitoring`, `management`, `ci`, `productivity`, `network`
 
-### 2.4 Docker Networks (12)
+### 2.5 Docker Networks (12)
 
 `agent-communication`, `ai-ml`, `apps`, `bridge`, `database`, `docker_default`, `host`, `management`, `monitoring`, `none`, `proxy`, `security`
 
 **Bridge iptables rules configured for:** `ai-ml`, `database`, `proxy`
 
-### 2.5 Secret Management
+### 2.6 Secret Management
 
 | Metric | Value |
 | :--- | :--- |
-| Secrets in docker-compose.yml | 17 |
+| Secrets in root docker-compose.yml | 17 |
 | Secrets in .env | 0 |
 | Secret files on disk | 20 (includes ssh_deploy_key.pub, workspaceId2.txt, omniroute_api_key.txt) |
 
-**All 17 Docker secrets (defined in docker-compose.yml):**
+**All 17 Docker secrets (defined in root docker-compose.yml):**
 
 | Secret | File | Purpose |
 | :--- | :--- | :--- |
@@ -126,7 +182,7 @@ terraform output        # View service URLs
 
 **Secret consumption pattern:** Services read secrets via `_FILE` env vars (Postgres, Redis, Vaultwarden, etc.) or the entrypoint wrapper script (Traefik, Cloudflared).
 
-### 2.6 Network Binding Policy
+### 2.7 Network Binding Policy
 
 All service ports locked to `127.0.0.1` except traefik (ports 80/443 public-facing).
 
@@ -203,6 +259,9 @@ SOP section 11 codified: MCP server usage, boundary restrictions, execution safe
 ### Production VM SSH Configuration (vm2)
 Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`. SSH remote authentication configured for `alwazw@vm2`. Deployer wired to `SSH_DEPLOY_HOST=vm2`.
 
+### Modular Compose Architecture
+Migrated from monolithic single-file compose to modular composable architecture. Root `docker-compose.yml` contains only `include:` directives, secrets, and networks. 31 services each have their own `compose/<category>/<service>/docker-compose.yml`. Selective startup via compose profiles.
+
 ---
 
 ## 6. Recent Commit History
@@ -222,6 +281,9 @@ Ubuntu Server 26.04 WSL VM created and reachable via `ssh vm2`. SSH remote authe
 ---
 
 ## 7. Current Sprint (In Progress)
+
+### Modular Compose Architecture
+**Status:** Completed. All 31 services migrated to individual compose files under `compose/<category>/<service>/`. Root file contains only `include:` directives, secrets, and networks.
 
 ### Infrastructure as Code (Terraform)
 Infrastructure as Code (Terraform) — 22 resources managed, all imported from existing deployment
@@ -260,6 +322,7 @@ Add Alibaba Cloud provider to Omniroute routing layer.
 | 8 | **Cloudflared QUIC Fix** | Pending | WSL2 UDP/7844 outbound blocked — investigate workaround or accept degraded HTTP/2 mode. |
 | 9 | **Omniroute Alibaba Providers** | Pending | Add via web UI. API key ready. |
 | 10 | **CI/CD Pipeline Testing** | Pending | Alpha test parallel validation alongside production processes. Duplicated effort accepted. |
+| 11 | **Modular Service Lifecycle Management** | Pending | Test selective startup/shutdown of individual service compose files via profiles. Validate that removing/adding a service compose file works without affecting others. |
 
 ---
 
@@ -272,6 +335,7 @@ Alpha phase verification tests run alongside production processes. Duplicated ef
 **Prerequisites established:**
 - Monitoring stack (Prometheus, Grafana, Uptime Kuma) provides observability for test validation
 - Compose profiles enable isolated testing of individual stacks
+- Modular compose files allow selective service startup for isolated testing
 - Port isolation ensures safe parallel execution without external exposure
 
 **First alpha targets:**
@@ -302,6 +366,7 @@ Alpha phase verification tests run alongside production processes. Duplicated ef
 | 2026-06-15 | **Watchdog cron `--no-agent`** | Full agent cron, no-agent script | Zero LLM cost for monitoring; agent mode reserved for intelligent delegation |
 | 2026-06-15 | **Hermes custom skill for delegation** | MCP tool, webhook, REST API skill | Skill approach teaches Hermes the full API; reusable across sessions |
 | 2026-06-16 | **Postgres healthcheck dual fallback** | Single healthcheck, dual fallback | Handles both Docker TCP health probe and internal pg_isready |
+| 2026-06-16 | **Modular Compose Architecture** | Monolithic single file, include-based modular | Each service gets its own compose file for independent lifecycle management, easier debugging, and selective startup. Root file is pure orchestrator. |
 
 ---
 
@@ -327,10 +392,11 @@ Alpha phase verification tests run alongside production processes. Duplicated ef
 | `agents/skills/hermes-multi-agent-architecture.md` | Architecture blueprint |
 | `docs/stack-security-operations-guide.md` | Stack Security and Operations Guide (SOP) |
 | `compose/ai/agent-zero/Dockerfile` | Custom LangGraph image build |
-| `compose/ai/agent-zero/docker-compose.yml` | Container orchestration config |
+| `compose/ai/agent-zero/docker-compose.yml` | Agent Zero container orchestration config |
 | `compose/ai/agent-zero/entrypoint.sh` | Entrypoint wrapper (API server + Agent Zero) |
 | `compose/ai/agent-zero/scripts/hermes_delegate.sh` | Hermes watchdog polling script |
 | `compose/ai/agent-zero/scripts/agent-zero-skill.md` | Delegation skill source (deployed to Hermes) |
+| `compose/<category>/<service>/docker-compose.yml` | Individual service compose files (31 total, one per service) |
 | `projects/template/` | Project directory template |
 | `secrets/` | All 17+ secret files (no secrets in .env) |
-| `docker-compose.yml` | Single compose file — 31 services, 7 profiles, 17 secrets |
+| `docker-compose.yml` | Root orchestrator — `include:` directives only, 17 secrets, 12 networks. Zero service definitions. |

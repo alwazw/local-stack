@@ -2,7 +2,8 @@
 
 **System:** Autonomous Engineer Framework v3 (AEF3)
 **Audit Date:** 2026-06-16
-**Scope:** All services defined in `/mnt/d/docker/docker-compose.yml`
+**Scope:** Root `docker-compose.yml` + all service compose files under `compose/<category>/<service>/`
+**Architecture:** Modular — root file orchestrates via `include:`; each service defines its own compose file
 **Status:** Phase 5 Complete — Secret management overhauled, all ports locked, network isolation configured
 
 ---
@@ -13,7 +14,8 @@
 
 | Dimension | Status | Detail |
 |---|---|---|
-| **Secret Management** | Hardened | 0 secrets in `.env`, 17 Docker secrets, all mounted read-only as files |
+| **Architecture** | Modular | Root `docker-compose.yml` contains only `include:`, `secrets:`, and `networks:` — zero service definitions |
+| **Secret Management** | Hardened | 0 secrets in `.env`, 17 Docker secrets, all mounted read-only as files; two-tier pattern (root defines `file:` paths, services reference as `external: true`) |
 | **Network Security** | Hardened | All ports bound to `127.0.0.1` except Traefik (80/443 public) |
 | **Docker Networks** | Segmented | 12 networks with role-based isolation (proxy, ai-ml, database, security, monitoring, agent-communication) |
 | **Firewall** | Partially configured | iptables rules for Docker bridge networks (ai-ml, database, proxy, agent-communication) |
@@ -28,6 +30,7 @@
 |---|---|
 | Services defined | 31 |
 | Compose profiles | 7 (ai, security, monitoring, management, ci, productivity, network) |
+| Service compose files | 31 (one per service under `compose/<category>/<service>/`) |
 | Docker networks | 12 |
 | Docker secrets | 17 |
 | Entrypoint wrappers | 5 (Traefik, Cloudflared, Authentik server+worker, Hermes, Omniroute) |
@@ -48,11 +51,36 @@
 
 ## 2. Secret Management Architecture
 
-### 2.1 Pattern
+### 2.1 Two-Tier Pattern
+
+```
+Tier 1 — Root docker-compose.yml (defines file paths):
+  secrets:
+    postgres_password:
+      file: ./secrets/postgres_password.txt
+
+Tier 2 — Each service compose file (references as external):
+  secrets:
+    postgres_password:
+      external: true
+
+  services:
+    postgres:
+      secrets:
+        - postgres_password
+```
+
+**Key rules:**
+- Root `docker-compose.yml` declares ALL secrets with `file: ./secrets/<name>.txt` paths
+- Each service compose file declares secrets with `external: true` — NO `file:` paths in service files
+- No secrets are hardcoded in ANY compose file — all values come from files in `secrets/`
+- Services consume secrets via `secrets:` list under the service, then reference `/run/secrets/<name>` in env vars or commands
+
+### 2.2 Secret Consumption Flow
 
 ```
 ./secrets/<name>.txt  (file on host, chmod 600)
-    ↓ Docker Compose mounts
+    ↓ Docker Compose (root defines file path, service references as external)
 /run/secrets/<name>   (read-only file inside container)
     ↓ consumed by
 _SERVICE_SECRET_FILE env var   (Postgres, Vaultwarden, Gitea, n8n, OpenWebUI, Hermes)
@@ -62,7 +90,7 @@ entrypoint-wrapper.sh reads    (Traefik, Cloudflared, Authentik, Hermes, Omnirou
 inline shell command           (Redis, Cloudflared)
 ```
 
-### 2.2 All 17 Docker Secrets
+### 2.3 All 17 Docker Secrets
 
 | # | Secret Name | Source File | Consumers | Consumption Method |
 |---|---|---|---|---|
@@ -73,7 +101,7 @@ inline shell command           (Redis, Cloudflared)
 | 5 | `authentik_secret` | `secrets/authentik_secret.txt` | Authentik server, Authentik worker | Entrypoint wrapper |
 | 6 | `hermes_password` | `secrets/hermes_password.txt` | Hermes | Entrypoint wrapper |
 | 7 | `github_token` | `secrets/github_token.txt` | (defined, unused) | — |
-| 8 | `agent_zero_key` | `secrets/agent_zero_key.txt` | (defined, unused) | — |
+| 8 | `agent_zero_key` | `secrets/agent_zero_key.txt` | Agent-Zero | `AGENT_ZERO_API_KEY_FILE` |
 | 9 | `gitea_secret` | `secrets/gitea_secret.txt` | Gitea | `GITEA__security__SECRET_KEY_FILE` |
 | 10 | `guac_admin_pass` | `secrets/guac_admin_pass.txt` | Guacamole | Entrypoint wrapper (inherited image) |
 | 11 | `litellm_key` | `secrets/litellm_key.txt` | LiteLLM, Agent-Zero | `LITELLM_MASTER_KEY_FILE` / `LITELLM_MASTER_KEY_FILE` |
@@ -84,15 +112,14 @@ inline shell command           (Redis, Cloudflared)
 | 16 | `redis_password` | `secrets/redis_password.txt` | Redis, Authentik, Omniroute | Inline shell (`requirepass`) |
 | 17 | `ssh_deploy_key` | `secrets/ssh_deploy_key` | Agent-Zero | `SSH_KEY_PATH` env var |
 
-### 2.3 Unused Secrets (Defined but No Consumers)
+### 2.4 Unused Secrets (Defined but No Consumers)
 
 | Secret | Notes | Action |
 |---|---|---|
 | `cf_api_key` | Cloudflare Global API key; `cf_dns_api_token` is the active token | Consider removing or documenting as backup |
 | `github_token` | GitHub PAT; no service currently consumes it | Wire to a service (Gitea mirror, CI) or remove |
-| `agent_zero_key` | Agent Zero API key; REST API has no auth gate | **Blocker** — must enforce before external access |
 
-### 2.4 Secret File Permissions
+### 2.5 Secret File Permissions
 
 All files in `/mnt/d/docker/secrets/` must be `chmod 600`:
 
@@ -100,7 +127,7 @@ All files in `/mnt/d/docker/secrets/` must be `chmod 600`:
 chmod 600 /mnt/d/docker/secrets/*.txt /mnt/d/docker/secrets/ssh_deploy_key
 ```
 
-### 2.5 Additional Files on Disk (Not in Docker Secrets Section)
+### 2.6 Additional Files on Disk (Not in Docker Secrets Section)
 
 | File | Purpose |
 |---|---|
@@ -124,14 +151,14 @@ chmod 600 /mnt/d/docker/secrets/*.txt /mnt/d/docker/secrets/ssh_deploy_key
 | All other services | `127.0.0.1` only | N/A (not externally reachable) |
 | Portainer (`0.0.0.0:8000`) | Public (agent port) | Portainer-native auth TBD |
 
-**Enforcement:** All port bindings in `docker-compose.yml` use `127.0.0.1:<host_port>:<container_port>` except:
+**Enforcement:** All port bindings in service compose files use `127.0.0.1:<host_port>:<container_port>` except:
 - `0.0.0.0:80:80` (Traefik HTTP)
 - `0.0.0.0:443:443` (Traefik HTTPS)
 - `0.0.0.0:8000:8000` (Portainer agent)
 
 ### 3.2 TLS Configuration
 
-**Traefik** is the sole TLS termination point:
+**Traefik** is the sole tls termination point:
 
 | Setting | Value |
 |---|---|
@@ -174,7 +201,7 @@ chmod 600 /mnt/d/docker/secrets/*.txt /mnt/d/docker/secrets/ssh_deploy_key
 
 | Endpoint | Auth Mechanism | Status |
 |---|---|---|
-| Agent Zero REST API (`:8081`) | None | **No auth** — `agent_zero_key.txt` exists but is not enforced |
+| Agent Zero REST API (`:8081`) | API key via `AGENT_ZERO_API_KEY_FILE` | `agent_zero_key.txt` exists and is mounted; enforcement gate pending |
 | LiteLLM (`:4000`) | Master key (`litellm_key`) | Configured via `LITELLM_MASTER_KEY_FILE` |
 | Omniroute (`:20128`) | API key (optional) | `REQUIRE_API_KEY=false` — enforcement disabled |
 | Grafana (`:3000`) | Admin password | Via `GRAFANA_ADMIN_PASSWORD` env var |
@@ -252,9 +279,12 @@ docker exec agent-zero ping -c 1 hermes-agent # Should succeed
 
 ### 5.1 How to Rotate a Secret
 
-1. **Stop the consuming service(s):**
+**Principle:** Secrets are file-based. Update the file in `secrets/`, then recreate only the affected containers.
+
+1. **Identify which services consume the secret.**
+   Consult the Secret-to-Service matrix (Appendix B) or grep the compose files:
    ```bash
-   docker compose stop <service-name>
+   grep -rl '<secret_name>' compose/
    ```
 
 2. **Update the secret file on the host:**
@@ -263,9 +293,24 @@ docker exec agent-zero ping -c 1 hermes-agent # Should succeed
    chmod 600 /mnt/d/docker/secrets/<secret_name>.txt
    ```
 
-3. **Recreate the container** (Docker secrets are baked in at container creation, not updated on restart):
+3. **Restart affected services using their modular compose path:**
    ```bash
-   docker compose up -d --force-recreate <service-name>
+   docker compose -f compose/<category>/<service>/docker-compose.yml up -d --force-recreate <service-name>
+   ```
+
+   For secrets shared by multiple services, recreate all consumers:
+   ```bash
+   # postgres_password is shared by Postgres, Authentik, Guacamole, Gitea, n8n
+   docker compose -f compose/data/postgres/docker-compose.yml up -d --force-recreate postgres
+   docker compose -f compose/security/authentik-server/docker-compose.yml up -d --force-recreate authentik-server
+   docker compose -f compose/productivity/guacamole/docker-compose.yml up -d --force-recreate guacamole
+   docker compose -f compose/ci/gitea/docker-compose.yml up -d --force-recreate gitea
+   docker compose -f compose/ci/n8n/docker-compose.yml up -d --force-recreate n8n
+   ```
+
+   Or recreate all at once from the root (which picks up all includes):
+   ```bash
+   docker compose up -d --force-recreate <service1> <service2> ...
    ```
 
 4. **Verify the new secret is active:**
@@ -278,13 +323,7 @@ docker exec agent-zero ping -c 1 hermes-agent # Should succeed
    docker logs --tail 50 <service-name>
    ```
 
-5. **Update any dependent services** that share the same secret:
-   ```bash
-   # postgres_password is shared by Postgres, Authentik, Guacamole, Gitea, n8n
-   docker compose up -d --force-recreate postgres authentik-server authentik-worker guacamole gitea n8n
-   ```
-
-### 5.2 How to Add a New Secret to docker-compose.yml
+### 5.2 How to Add a New Secret
 
 1. **Create the secret file:**
    ```bash
@@ -292,19 +331,23 @@ docker exec agent-zero ping -c 1 hermes-agent # Should succeed
    chmod 600 /mnt/d/docker/secrets/new_secret.txt
    ```
 
-2. **Add the secret definition** at the bottom of `docker-compose.yml` under `secrets:`:
+2. **Add the secret definition** to the root `docker-compose.yml` under `secrets:`:
    ```yaml
    secrets:
      new_secret:
        file: ./secrets/new_secret.txt
    ```
 
-3. **Mount the secret** to the consuming service(s):
+3. **In the service's compose file** (`compose/<category>/<service>/docker-compose.yml`), declare the secret as external and mount it:
    ```yaml
    services:
      my-service:
        secrets:
          - new_secret
+
+   secrets:
+     new_secret:
+       external: true
    ```
 
 4. **Reference the secret** in the service (choose one method):
@@ -335,7 +378,7 @@ docker exec agent-zero ping -c 1 hermes-agent # Should succeed
 
 6. **Verify:**
    ```bash
-   docker compose config --secrets    # Shows secret definitions (not values)
+   docker compose config    # Shows rendered config (values masked by Docker)
    docker compose up -d <service-name>
    docker exec <service-name> cat /run/secrets/new_secret
    ```
@@ -365,6 +408,11 @@ grep -iE '(password|token|key|secret)' /mnt/d/docker/.env 2>/dev/null
 # 6. Verify no secrets committed to git
 git ls-files | grep -E '(secrets/.*\.txt|\.env$)'
 # Should return nothing (all secret files must be in .gitignore)
+
+# 7. CRITICAL: Verify NO service compose file contains 'file:' paths for secrets
+#    (Only the root docker-compose.yml should have 'file:' — all service files must use 'external: true')
+grep -rn 'file:.*secrets/' compose/
+# Should return nothing. If it does, that service file violates the two-tier pattern.
 ```
 
 ### 5.4 How to Check iptables Rules
@@ -413,10 +461,13 @@ docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep -v '127.0.0.1'
 ### 6.1 Secret Management
 
 - [ ] No secrets in `.env` — **PASS** (verified: 0 secrets in `.env`)
-- [ ] No secrets hardcoded in YAML — **PASS** (all values referenced via secrets or env vars pointing to non-sensitive config)
+- [ ] No secrets hardcoded in ANY compose file — **PASS** (all values referenced via secrets or env vars pointing to non-sensitive config)
+- [ ] Root `docker-compose.yml` has NO service definitions — **PASS** (only `include:`, `secrets:`, and `networks:`)
+- [ ] NO service compose file contains `file:` paths for secrets — **VERIFY** (run: `grep -rn 'file:.*secrets/' compose/` — must return nothing)
+- [ ] All service compose files use `external: true` for secrets — **VERIFY** (each service file's `secrets:` block must use `external: true`)
 - [ ] All secret files gitignored — **PASS** (`.gitignore` covers `secrets/*`, `*_key.txt`, `*_password.txt`, `*_token.txt`, `*_secret.txt`)
 - [ ] All secret files `chmod 600` — **VERIFY** (run: `stat -c '%a %n' /mnt/d/docker/secrets/*`)
-- [ ] Unused secrets documented or removed — **FAIL** (`cf_api_key`, `github_token`, `agent_zero_key` defined but not consumed)
+- [ ] Unused secrets documented or removed — **FAIL** (`cf_api_key`, `github_token` defined but not consumed)
 
 ### 6.2 Network Security
 
@@ -428,7 +479,7 @@ docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep -v '127.0.0.1'
 ### 6.3 Access Control
 
 - [ ] SSO configured for all external services — **FAIL** (Authentik deployed but not wired to Traefik)
-- [ ] API authentication enabled for all REST endpoints — **FAIL** (Agent Zero REST API has no auth; Omniroute enforcement disabled)
+- [ ] API authentication enabled for all REST endpoints — **FAIL** (Agent Zero REST API auth gate pending; Omniroute enforcement disabled)
 - [ ] No external access before authentication — **PASS** (all services bound to `127.0.0.1` except Traefik)
 - [ ] Traefik dashboard secured — **FAIL** (no Authentik middleware; dashboard unreachable while TLS is broken)
 
@@ -437,7 +488,7 @@ docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep -v '127.0.0.1'
 - [ ] Audit logs preserved — **PASS** (`agents/qwen/` directory actively used as audit trail)
 - [ ] Backup procedures tested — **TODO** (database dumps, volume backups, secret backup)
 - [ ] Health checks configured for all services — **PARTIAL** (5 services lack healthchecks: cloudflared, dozzle, loki, portainer, promtail)
-- [ ] Secret rotation procedure documented — **PASS** (Section 5.1)
+- [ ] Secret rotation procedure documented — **PASS** (Section 5.1, updated for modular compose paths)
 
 ---
 
@@ -498,7 +549,7 @@ stat -c '%a %n' /mnt/d/docker/secrets/*
 | `ssh_deploy_key` | | | | | | | | | | X | | | | | |
 | `cf_api_key` | | | | | | | | | | | | | | | |
 | `github_token` | | | | | | | | | | | | | | | |
-| `agent_zero_key` | | | | | | | | | | | | | | | |
+| `agent_zero_key` | | | | | | | | | | X | | | | | |
 
 ## Appendix C: Compose Profile Dependency Graph
 

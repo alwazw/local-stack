@@ -1,7 +1,5 @@
-# SearXNG — Privacy-respecting metasearch engine
-# Profile: ai
-# Network: proxy, ai-ml
-# Port: 8080
+version: "3.8"
+
 services:
   searxng:
     image: searxng/searxng:latest
@@ -10,13 +8,15 @@ services:
     profiles: [ai]
     environment:
       SEARXNG_BASE_URL: "http://searxng:8080/"
-      SEARXNG_SECRET_KEY: "changeme-replace-with-random-key"
+      SEARXNG_SECRET_KEY_FILE: /run/secrets/webui_secret_key
     volumes:
-      - ./compose/ai/searxng/settings.yml:/etc/searxng/settings.yml:ro
-      - ./compose/ai/searxng/limiter.toml:/etc/searxng/limiter.toml:ro
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+      - ./limiter.toml:/etc/searxng/limiter.toml:ro
     networks:
       - proxy
       - ai-ml
+    secrets:
+      - webui_secret_key
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
       interval: 30s
@@ -34,3 +34,13 @@ services:
       - "homepage.icon=searxng.png"
       - "homepage.href=https://search.${DOMAIN}"
       - "homepage.description=Privacy-respecting metasearch"
+
+networks:
+  proxy:
+    external: true
+  ai-ml:
+    external: true
+
+secrets:
+  webui_secret_key:
+    external: true

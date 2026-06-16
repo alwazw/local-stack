@@ -7,12 +7,12 @@ services:
     command: server
     environment:
       AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_REDIS__PASSWORD: PzH4sqKhZKzwGVBYpu3S5S6f742n6vXZtA4O8LHTQUI=
+      AUTHENTIK_REDIS__PASSWORD_FILE: /run/secrets/redis_password
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: mPfIVznCZRhSmutj3KBPOLIHT85dJS0Tg15ZbpzoVWg=
-      AUTHENTIK_SECRET_KEY: 5HcPEkNgrQOaXhpH5Tp/SaSXdDHQHU7511OLWd/W8x4=
+      AUTHENTIK_POSTGRESQL__PASSWORD_FILE: /run/secrets/postgres_password
+      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik_secret_key
     volumes:
       - authentik_media:/media
       - ./custom-templates:/templates
@@ -20,6 +20,10 @@ services:
       - proxy
       - database
       - security
+    secrets:
+      - redis_password
+      - postgres_password
+      - authentik_secret_key
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
@@ -33,15 +37,19 @@ services:
     command: worker
     environment:
       AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_REDIS__PASSWORD: PzH4sqKhZKzwGVBYpu3S5S6f742n6vXZtA4O8LHTQUI=
+      AUTHENTIK_REDIS__PASSWORD_FILE: /run/secrets/redis_password
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: mPfIVznCZRhSmutj3KBPOLIHT85dJS0Tg15ZbpzoVWg=
-      AUTHENTIK_SECRET_KEY: 5HcPEkNgrQOaXhpH5Tp/SaSXdDHQHU7511OLWd/W8x4=
+      AUTHENTIK_POSTGRESQL__PASSWORD_FILE: /run/secrets/postgres_password
+      AUTHENTIK_SECRET_KEY_FILE: /run/secrets/authentik_secret_key
     networks:
       - database
       - security
+    secrets:
+      - redis_password
+      - postgres_password
+      - authentik_secret_key
 
 networks:
   proxy: {external: true}
@@ -50,3 +58,11 @@ networks:
 
 volumes:
   authentik_media:
+
+secrets:
+  redis_password:
+    external: true
+  postgres_password:
+    external: true
+  authentik_secret_key:
+    external: true

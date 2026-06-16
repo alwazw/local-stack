@@ -1,7 +1,5 @@
-# Promtail — Log shipper (Docker containers → Loki)
-# Profile: monitoring
-# Network: monitoring
-# Mounts: Docker socket, container logs
+version: "3.8"
+
 services:
   promtail:
     image: grafana/promtail:latest
@@ -10,10 +8,14 @@ services:
     profiles: [monitoring]
     command: ["-config.file=/etc/promtail/config.yaml"]
     volumes:
-      - ./compose/monitoring/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - ./config.yaml:/etc/promtail/config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - monitoring
     depends_on:
       - loki
+
+networks:
+  monitoring:
+    external: true

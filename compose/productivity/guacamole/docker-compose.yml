@@ -1,20 +1,6 @@
-# Guacamole — Remote desktop gateway (RDP, VNC, SSH, Kubernetes)
-# Profile: productivity
-# Network: proxy, database
-# Port: 8081
-# Depends: postgres (guacd for protocol translation)
-services:
-  guacd:
-    image: guacamole/guacd:latest
-    container_name: guacd
-    restart: unless-stopped
-    profiles: [productivity]
-    volumes:
-      - guacd_drive:/drive:rw
-      - guacd_record:/record:rw
-    networks:
-      - ai-ml
+version: "3.8"
 
+services:
   guacamole:
     image: guacamole/guacamole:latest
     container_name: guacamole
@@ -25,21 +11,17 @@ services:
       - postgres
     environment:
       GUACD_HOSTNAME: guacd
-      POSTGRES_HOSTNAME: postgres
-      POSTGRES_DATABASE: guacamole
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRESQL_PASSWORD_FILE: /run/secrets/guac_admin_pass
-    volumes:
-      - guacd_drive:/drive:rw
-      - guacd_record:/record:rw
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_DATABASE: guacamole
+      POSTGRESQL_USER: ${POSTGRES_USER}
+      POSTGRESQL_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+      - guac_admin_pass
     networks:
       - proxy
       - ai-ml
       - database
-    secrets:
-      - postgres_password
-      - guac_admin_pass
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/guacamole"]
       interval: 30s
@@ -57,3 +39,17 @@ services:
       - "homepage.icon=guacamole.png"
       - "homepage.href=https://rdp.${DOMAIN}"
       - "homepage.description=Remote desktop gateway (RDP/VNC/SSH)"
+
+networks:
+  proxy:
+    external: true
+  ai-ml:
+    external: true
+  database:
+    external: true
+
+secrets:
+  postgres_password:
+    external: true
+  guac_admin_pass:
+    external: true

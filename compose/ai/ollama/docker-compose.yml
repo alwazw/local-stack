@@ -1,13 +1,15 @@
+version: "3.8"
+
 services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
-    env_file: [../../../.env]
+    profiles: [ai]
     volumes:
       - ./models:/root/.ollama
     ports:
-      - "${PORT_OLLAMA}:11434"
+      - "127.0.0.1:${PORT_OLLAMA}:11434"
     networks:
       - ai-ml
     healthcheck:

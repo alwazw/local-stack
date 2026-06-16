@@ -1,28 +1,35 @@
+version: "3.8"
+
 services:
   omniroute:
     image: diegosouzapw/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
-    env_file:
-      - ../../../.env
+    profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["node", "dev/run-standalone.mjs"]
+    depends_on:
+      - redis
     environment:
       PORT: "${PORT_OMNIROUTE}"
       REQUIRE_API_KEY: "false"
       DATA_DIR: /app/data
-      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
     volumes:
       - omniroute_data:/app/data
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     ports:
-      - "${PORT_OMNIROUTE}:20128"
+      - "127.0.0.1:${PORT_OMNIROUTE}:20128"
     networks:
       - proxy
       - ai-ml
       - database
+    secrets:
+      - redis_password
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Omniroute"
       - "homepage.icon=omniroute.png"
-      - "homepage.href=https://omniroute.${DOMAIN}"
+      - "homepage.href=http://localhost:${PORT_OMNIROUTE}"
       - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
       - "traefik.enable=true"
       - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
@@ -36,13 +43,18 @@ services:
       retries: 3
       start_period: 30s
 
-volumes:
-  omniroute_data:
-
 networks:
   proxy:
     external: true
   ai-ml:
     external: true
   database:
+    external: true
+
+volumes:
+  omniroute_data:
+    external: true
+
+secrets:
+  redis_password:
     external: true

@@ -1,63 +1,40 @@
-services:
-  hermes-agent:
-    image: nousresearch/hermes-agent:latest
-    container_name: hermes-agent
-    command: gateway run
-    restart: unless-stopped
-    env_file:
-      - ../../../.env
-    stdin_open: true
-    tty: true
-    environment:
-      HERMES_HOME: /home/hermes/.hermes
-      HERMES_UID: "1000"
-      HERMES_GID: "1000"
-      GATEWAY_ALLOW_ALL_USERS: "true"
-      # Force gateway to accept incoming API handshakes without arbitrary auth blocks
-      HERMES_DASHBOARD_INSECURE: "1"   
-    volumes:
-      - hermes_home:/home/hermes/.hermes
-      - hermes_agent_src:/opt/hermes
-    networks:
-      - ai-ml
-    healthcheck:
-      test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+version: "3.8"
 
+services:
   hermes:
     image: ghcr.io/nesquena/hermes-webui:latest
     container_name: hermes
     restart: unless-stopped
-    env_file:
-      - ../../../.env
+    profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["/hermeswebui_init.bash"]
     depends_on:
       - hermes-agent
     environment:
-      HERMES_WEBUI_PASSWORD: ${HERMES_WEBUI_PASSWORD}
       HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
       HERMES_WEBUI_HOST: "0.0.0.0"
       HERMES_WEBUI_PORT: "8787"
       WANTED_UID: "1000"
       WANTED_GID: "1000"
-      # Points the WebUI to communicate with your agent container inside the ai-ml network
-      HERMES_AGENT_HOST: "hermes-agent" 
+      HERMES_AGENT_HOST: "hermes-agent"
     volumes:
       - hermes_home:/home/hermeswebui/.hermes
       - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
       - hermes_workspace:/workspace
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     ports:
-      - "${PORT_HERMES}:8787"
+      - "127.0.0.1:${PORT_HERMES}:8787"
     networks:
       - proxy
       - ai-ml
+      - agent-communication
+    secrets:
+      - hermes_password
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Hermes"
       - "homepage.icon=hermes.png"
-      - "homepage.href=https://hermes.${DOMAIN}"
+      - "homepage.href=http://localhost:${PORT_HERMES}"
       - "homepage.description=Self-hosted AI Agent with Memory & Tools"
       - "traefik.enable=true"
       - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
@@ -71,13 +48,22 @@ services:
       retries: 3
       start_period: 30s
 
-volumes:
-  hermes_home:
-  hermes_agent_src:
-  hermes_workspace:
-
 networks:
   proxy:
     external: true
   ai-ml:
+    external: true
+  agent-communication:
+    external: true
+
+volumes:
+  hermes_home:
+    external: true
+  hermes_agent_src:
+    external: true
+  hermes_workspace:
+    external: true
+
+secrets:
+  hermes_password:
     external: true

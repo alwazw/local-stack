@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.10.1
+    container_name: authentik-server
+    restart: unless-stopped
+    profiles: [security]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["dumb-init", "--", "ak", "server"]
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+    ports:
+      - "127.0.0.1:${PORT_AUTHENTIK}:9000"
+    volumes:
+      - authentik_media:/media
+      - ./custom-templates:/templates
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    networks:
+      - proxy
+      - database
+      - security
+    secrets:
+      - authentik_secret
+      - redis_password
+      - postgres_password
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+
+networks:
+  proxy:
+    external: true
+  database:
+    external: true
+  security:
+    external: true
+
+volumes:
+  authentik_media:
+    external: true
+
+secrets:
+  authentik_secret:
+    external: true
+  redis_password:
+    external: true
+  postgres_password:
+    external: true

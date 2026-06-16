@@ -1,7 +1,5 @@
-# Portainer CE — Docker container management UI
-# Profile: management
-# Network: proxy
-# Port: 9443 (HTTPS), 8000 (edge agent)
+version: "3.8"
+
 services:
   portainer:
     image: portainer/portainer-ce:latest
@@ -27,3 +25,11 @@ services:
       - "homepage.icon=portainer.png"
       - "homepage.href=https://portainer.${DOMAIN}"
       - "homepage.description=Docker container management"
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  portainer_data:
+    external: true

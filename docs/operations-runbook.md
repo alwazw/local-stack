@@ -1,6 +1,6 @@
 # AEF3 Operations Runbook
 
-Autonomous Engineer Framework v3 — Docker Compose Stack
+Autonomous Engineer Framework v3 — Modular Docker Compose Stack
 
 ---
 
@@ -9,28 +9,46 @@ Autonomous Engineer Framework v3 — Docker Compose Stack
 | Property | Value |
 |---|---|
 | Root directory | `/mnt/d/docker` |
-| Config | `docker-compose.yml` (single source of truth) |
-| Total services | 31 |
-| Compose profiles | `ai`, `ci`, `management`, `monitoring`, `network`, `productivity`, `security` |
-| Always-on (no profile) | `postgres`, `redis` |
-| Data volumes | `compose/*/data`, `compose/*/config` |
+| Config | `docker-compose.yml` (orchestrator — uses `include:` to pull in individual service files) |
+| Service definitions | 35 individual `compose/<category>/<service>/docker-compose.yml` files |
+| Included in root | 32 services (via `include:` in root `docker-compose.yml`) |
+| Standalone (not in root) | `woodpecker`, `affine`, `plane`, `authentik` meta-service |
+| Data directories | `compose/<category>/<service>/data`, `compose/<category>/<service>/config` |
 | Named volumes | `hermes_home`, `hermes_agent_src`, `hermes_workspace`, `omniroute_data`, `qdrant_data`, `gitea_data`, `n8n_data`, `grafana_data`, `uptime_kuma_data`, `loki_data`, `portainer_data`, `dockge_data`, `authentik_media`, `guacd_drive`, `guacd_record`, `cloudflared_bin` |
 | Networks (all external) | `proxy`, `database`, `ai-ml`, `agent-communication`, `security`, `monitoring` |
 | Secrets | `./secrets/*.txt` mounted at `/run/secrets/<name>` |
 | Environment | WSL2 + Docker Desktop |
 
-### Service inventory by profile
+### Modular compose file inventory
 
-| Profile | Services |
+Each service has its own `docker-compose.yml` under `compose/<category>/<service>/`:
+
+| Category | Services (compose path) |
 |---|---|
-| **ai** | `agent-zero`, `litellm`, `mcpo`, `ollama`, `openwebui`, `hermes-agent`, `hermes`, `omniroute`, `traefik`, `qdrant`, `searxng` |
-| **network** | `cloudflared`, `cloudflared-installer` |
-| **security** | `authentik-server`, `authentik-worker`, `vaultwarden` |
-| **monitoring** | `prometheus`, `grafana`, `uptime-kuma`, `loki`, `promtail`, `cadvisor`, `dozzle` |
-| **productivity** | `guacd`, `guacamole` |
-| **ci** | `gitea`, `n8n` |
-| **management** | `portainer`, `dockge`, `homepage` |
-| *(none)* | `postgres`, `redis` |
+| **network** | `network/traefik/`, `network/cloudflared/` |
+| **ai** | `ai/agent-zero/`, `ai/litellm/`, `ai/mcpo/`, `ai/ollama/`, `ai/openwebui/`, `ai/hermes-agent/`, `ai/hermes/`, `ai/omniroute/`, `ai/qdrant/`, `ai/searxng/` |
+| **data** | `data/postgres/`, `data/redis/` |
+| **security** | `security/authentik-server/`, `security/authentik-worker/`, `security/vaultwarden/` |
+| **monitoring** | `monitoring/prometheus/`, `monitoring/grafana/`, `monitoring/uptime-kuma/`, `monitoring/loki/`, `monitoring/promtail/`, `monitoring/cadvisor/`, `monitoring/dozzle/` |
+| **management** | `management/portainer/`, `management/dockge/`, `management/homepage/` |
+| **ci** | `ci/gitea/`, `ci/n8n/` |
+| **productivity** | `productivity/guacd/`, `productivity/guacamole/` |
+| **standalone** (not in root `include:`) | `ci/woodpecker/`, `productivity/affine/`, `productivity/plane/`, `security/authentik/` (meta) |
+
+### Architecture pattern
+
+```
+docker-compose.yml                    ← root orchestrator (include: only)
+├── compose/network/traefik/
+│   └── docker-compose.yml            ← single-service compose file
+├── compose/ai/agent-zero/
+│   ├── docker-compose.yml            ← single-service compose file
+│   └── data/                         ← service-specific data
+├── compose/data/postgres/
+│   ├── docker-compose.yml
+│   └── data/                         ← postgres data dir
+└── ... (35 services total)
+```
 
 ---
 
@@ -50,7 +68,7 @@ terraform/
 ├── secrets.tf            # Secret file path mappings
 ├── terraform.tfvars      # Environment values
 ├── modules/service/      # Reusable container module
-└── services/             # 8 service definition files
+└── services/             # Service definition files
 ```
 
 ### Initialize
@@ -150,50 +168,120 @@ docker network create monitoring
 ls -la secrets/
 ```
 
-### Start all services
+### Start all services (root orchestrator)
+
+From the project root, the root `docker-compose.yml` pulls in all 32 included services:
 
 ```bash
 cd /mnt/d/docker
-docker compose --profile '*' up -d
+docker compose up -d
 ```
 
-### Start by profile
+### Start a single service
+
+Each service has its own compose file. Start it directly:
 
 ```bash
-# AI + Monitoring only
-docker compose --profile ai --profile monitoring up -d
-
-# AI profile (includes traefik, which is in the ai profile)
-docker compose --profile ai up -d
-
-# Security + data layer
-docker compose up -d postgres redis && docker compose --profile security up -d
+docker compose -f compose/ai/agent-zero/docker-compose.yml up -d
+docker compose -f compose/data/postgres/docker-compose.yml up -d
+docker compose -f compose/monitoring/grafana/docker-compose.yml up -d
 ```
 
-### Start specific services
+### Start multiple specific services
+
+Stack `-f` flags to start a subset without touching everything:
 
 ```bash
-# Core data layer first (postgres + redis have no profile, always included)
-docker compose up -d postgres redis
+# AI core: LiteLLM + Ollama + OpenWebUI
+docker compose \
+  -f compose/ai/litellm/docker-compose.yml \
+  -f compose/ai/ollama/docker-compose.yml \
+  -f compose/ai/openwebui/docker-compose.yml \
+  up -d
 
-# Specific service
-docker compose up -d hermes agent-zero
+# Full monitoring stack
+docker compose \
+  -f compose/monitoring/prometheus/docker-compose.yml \
+  -f compose/monitoring/grafana/docker-compose.yml \
+  -f compose/monitoring/loki/docker-compose.yml \
+  -f compose/monitoring/promtail/docker-compose.yml \
+  -f compose/monitoring/cadvisor/docker-compose.yml \
+  -f compose/monitoring/dozzle/docker-compose.yml \
+  -f compose/monitoring/uptime-kuma/docker-compose.yml \
+  up -d
+```
+
+### Start by category
+
+Start all services within a category directory:
+
+```bash
+# All AI services
+for f in compose/ai/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
+
+# All monitoring services
+for f in compose/monitoring/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
+
+# Data layer (postgres + redis)
+docker compose -f compose/data/postgres/docker-compose.yml up -d
+docker compose -f compose/data/redis/docker-compose.yml up -d
+```
+
+### Start standalone services (not in root include:)
+
+```bash
+docker compose -f compose/ci/woodpecker/docker-compose.yml up -d
+docker compose -f compose/productivity/affine/docker-compose.yml up -d
+docker compose -f compose/productivity/plane/docker-compose.yml up -d
+docker compose -f compose/security/authentik/docker-compose.yml up -d
+```
+
+### Startup order
+
+Services with dependencies should be started in order:
+
+```bash
+# 1. Data layer first (no dependencies)
+docker compose -f compose/data/postgres/docker-compose.yml up -d
+docker compose -f compose/data/redis/docker-compose.yml up -d
+
+# 2. Network layer
+docker compose -f compose/network/traefik/docker-compose.yml up -d
+docker compose -f compose/network/cloudflared/docker-compose.yml up -d
+
+# 3. Security (depends on postgres)
+docker compose -f compose/security/authentik-server/docker-compose.yml up -d
+docker compose -f compose/security/authentik-worker/docker-compose.yml up -d
+
+# 4. AI (depends on redis via omniroute)
+for f in compose/ai/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
+
+# 5. CI, Monitoring, Management, Productivity (can start in any order after data layer)
 ```
 
 ### Verify startup
 
 ```bash
-# Check all service statuses
-docker compose --profile '*' ps
+# Check all running containers
+docker ps
 
-# Check only unhealthy/failed services
-docker compose --profile '*' ps | grep -v 'healthy\|running'
+# Check a specific service
+docker compose -f compose/ai/litellm/docker-compose.yml ps
 
-# Wait for all services to become healthy (poll loop)
-watch -n 5 'docker compose --profile '*' ps --format "table {{.Name}}\t{{.Status}}"'
+# Check multiple services
+docker compose -f compose/data/postgres/docker-compose.yml -f compose/data/redis/docker-compose.yml ps
 
-# Quick health summary
-docker compose --profile '*' ps --format '{{.Name}}: {{.State}} ({{.Health}})'
+# Wait for a service to become healthy
+watch -n 5 'docker compose -f compose/data/postgres/docker-compose.yml ps'
+
+# Quick health summary for all running containers
+docker ps --format '{{.Names}}: {{.Status}}'
 ```
 
 ### Verify critical paths
@@ -213,47 +301,58 @@ docker exec traefik wget --spider -q http://localhost:8080/ping
 
 ## 3. Shutdown Procedures
 
-### Graceful stop all
+### Graceful stop all (root orchestrator)
 
 ```bash
 cd /mnt/d/docker
-docker compose --profile '*' down
+docker compose down
 ```
 
-### Stop specific services
+### Stop a single service
 
 ```bash
-# Stop without removing containers
-docker compose stop hermes agent-zero
-
-# Stop entire profile
-docker compose --profile monitoring down
-docker compose --profile productivity down
+docker compose -f compose/ai/agent-zero/docker-compose.yml down
 ```
 
-### Stop and remove containers + networks (keeps volumes)
+### Stop without removing containers
 
 ```bash
-docker compose --profile '*' down
+docker compose -f compose/ai/agent-zero/docker-compose.yml stop
+```
+
+### Stop multiple specific services
+
+```bash
+docker compose \
+  -f compose/monitoring/prometheus/docker-compose.yml \
+  -f compose/monitoring/grafana/docker-compose.yml \
+  down
+```
+
+### Stop an entire category
+
+```bash
+for f in compose/monitoring/*/docker-compose.yml; do
+  docker compose -f "$f" down
+done
 ```
 
 ### DANGER: Stop and remove volumes (DESTRUCTIVE)
 
 ```bash
-# This deletes ALL data in named volumes (postgres, redis, grafana, etc.)
-# Only use when rebuilding from scratch
-docker compose --profile '*' down -v
+# This deletes data for the specified service(s)
+docker compose -f compose/data/postgres/docker-compose.yml down -v
 
 # Verify what volumes will be deleted before running:
-docker compose --profile '*' config | grep -A1 'volumes:'
+docker compose -f compose/data/postgres/docker-compose.yml config | grep -A1 'volumes:'
 ```
 
 ### Emergency kill
 
 ```bash
 # For unresponsive containers
-docker compose stop <name>
-docker kill <name>
+docker compose -f compose/ai/agent-zero/docker-compose.yml stop
+docker kill agent-zero
 ```
 
 ---
@@ -263,34 +362,35 @@ docker kill <name>
 ### Restart single service
 
 ```bash
-docker compose restart <name>
-
-# Example
-docker compose restart postgres
+docker compose -f compose/data/postgres/docker-compose.yml restart
 ```
 
 ### Recreate with updated configuration
 
 ```bash
-# Single service (picks up docker-compose.yml changes)
-docker compose up -d --force-recreate <name>
+# Single service (picks up compose file changes)
+docker compose -f compose/ai/litellm/docker-compose.yml up -d --force-recreate
 
 # Without rebuilding image
-docker compose up -d --force-recreate --no-build <name>
+docker compose -f compose/ai/litellm/docker-compose.yml up -d --force-recreate --no-build
 ```
 
-### Recreate all services
+### Recreate all services (root orchestrator)
 
 ```bash
-docker compose --profile '*' up -d --force-recreate
+docker compose up -d --force-recreate
 ```
 
 ### Restart with fresh image
 
 ```bash
-# Pull latest images, then recreate
-docker compose --profile '*' pull
-docker compose --profile '*' up -d --force-recreate
+# Pull latest images for a specific service
+docker compose -f compose/ai/agent-zero/docker-compose.yml pull
+docker compose -f compose/ai/agent-zero/docker-compose.yml up -d --force-recreate
+
+# Pull all included services
+docker compose pull
+docker compose up -d --force-recreate
 ```
 
 ### Restart data layer (postgres + redis)
@@ -299,44 +399,64 @@ Services that depend on postgres/redis will break during the restart. Order matt
 
 ```bash
 # 1. Stop dependent services first
-docker compose --profile ci down
-docker compose --profile security down
-docker compose --profile productivity down
-docker compose up -d --force-recreate postgres redis
+docker compose -f compose/ci/gitea/docker-compose.yml down
+docker compose -f compose/ci/n8n/docker-compose.yml down
+docker compose -f compose/security/authentik-server/docker-compose.yml down
+docker compose -f compose/security/authentik-worker/docker-compose.yml down
+docker compose -f compose/productivity/guacamole/docker-compose.yml down
 
-# 2. Wait for health
-docker compose ps postgres redis
+# 2. Restart data layer
+docker compose -f compose/data/postgres/docker-compose.yml up -d --force-recreate
+docker compose -f compose/data/redis/docker-compose.yml up -d --force-recreate
 
-# 3. Restart dependents
-docker compose --profile ci up -d
-docker compose --profile security up -d
-docker compose --profile productivity up -d
+# 3. Wait for health
+docker compose -f compose/data/postgres/docker-compose.yml ps
+docker compose -f compose/data/redis/docker-compose.yml ps
+
+# 4. Restart dependents
+docker compose -f compose/ci/gitea/docker-compose.yml up -d
+docker compose -f compose/ci/n8n/docker-compose.yml up -d
+docker compose -f compose/security/authentik-server/docker-compose.yml up -d
+docker compose -f compose/security/authentik-worker/docker-compose.yml up -d
+docker compose -f compose/productivity/guacamole/docker-compose.yml up -d
 ```
 
 ---
 
 ## 5. Health Check Procedures
 
-### Check all service status
+### Check a single service
 
 ```bash
-docker compose --profile '*' ps
+docker compose -f compose/ai/litellm/docker-compose.yml ps
+```
+
+### Check multiple services
+
+```bash
+docker compose \
+  -f compose/data/postgres/docker-compose.yml \
+  -f compose/data/redis/docker-compose.yml \
+  ps
+```
+
+### Check all running containers
+
+```bash
+docker ps
 ```
 
 ### Check individual service logs
 
 ```bash
 # Last 50 lines
-docker compose logs <name> --tail 50
+docker compose -f compose/ai/litellm/docker-compose.yml logs --tail 50
 
 # Follow in real-time
-docker compose logs -f <name>
+docker compose -f compose/monitoring/loki/docker-compose.yml logs -f
 
 # Since a specific time
-docker compose logs --since 2025-06-16T10:00:00 <name>
-
-# Logs for an entire profile
-docker compose --profile monitoring logs --tail 100
+docker compose -f compose/ai/agent-zero/docker-compose.yml logs --since 2025-06-16T10:00:00
 ```
 
 ### Check service health state
@@ -416,13 +536,13 @@ docker exec grafana wget --spider -q http://localhost:3000/api/health
 
 ```bash
 # 1. Check logs
-docker compose logs <name> --tail 100
+docker compose -f compose/<category>/<service>/docker-compose.yml logs --tail 100
 
 # 2. Check if container exists at all
 docker ps -a --filter name=<name>
 
 # 3. Check config rendering
-docker compose config --service <name>
+docker compose -f compose/<category>/<service>/docker-compose.yml config
 
 # 4. Check network connectivity
 docker network ls
@@ -432,7 +552,7 @@ docker inspect <name> --format '{{json .NetworkSettings.Networks}}' | python3 -m
 ls -la secrets/
 
 # 6. Try starting with visible output
-docker compose up <name>
+docker compose -f compose/<category>/<service>/docker-compose.yml up
 ```
 
 ### Network connectivity
@@ -474,7 +594,7 @@ docker exec <name> cat /run/secrets/<secret_name>
 cat secrets/<secret_name>.txt | wc -c
 
 # Rebuild container with fresh secrets
-docker compose up -d --force-recreate <name>
+docker compose -f compose/<category>/<service>/docker-compose.yml up -d --force-recreate
 ```
 
 ### Database connectivity
@@ -529,17 +649,17 @@ sudo iptables -F DOCKER-FORWARD
 sudo iptables -F DOCKER-USER
 ```
 
-### Profile-specific debugging
+### Service config debugging
 
 ```bash
-# Check what services a profile would start
-docker compose --profile ai config --services
+# Render a single service's compose config
+docker compose -f compose/ai/litellm/docker-compose.yml config
 
 # Dry-run (shows what would be created)
-docker compose --profile ai up -d --dry-run
+docker compose -f compose/ai/agent-zero/docker-compose.yml up --dry-run
 
 # Check service dependencies
-docker compose config --service <name> | grep -A5 'depends_on'
+docker compose -f compose/security/authentik-server/docker-compose.yml config | grep -A5 'depends_on'
 ```
 
 ---
@@ -555,7 +675,7 @@ docker compose config --service <name> | grep -A5 'depends_on'
 **Workaround:**
 - Cloudflare DNS challenge may still work if port 443 outbound to Cloudflare is allowed
 - If fully blocked, use HTTP challenge (requires port 80 inbound) or self-signed certificates
-- Check Traefik logs: `docker compose logs traefik --tail 200 | grep -i acme`
+- Check Traefik logs: `docker compose -f compose/network/traefik/docker-compose.yml logs --tail 200 | grep -i acme`
 
 **Verification:**
 ```bash
@@ -572,7 +692,7 @@ docker exec traefik wget --spider -q https://acme-v02.api.letsencrypt.org/direct
 
 **Verification:**
 ```bash
-docker compose logs cloudflared 2>&1 | grep -iE 'quic|http2|degraded'
+docker compose -f compose/network/cloudflared/docker-compose.yml logs 2>&1 | grep -iE 'quic|http2|degraded'
 ```
 
 **Note:** No workaround available; HTTP/2 fallback is automatic and acceptable.
@@ -609,7 +729,7 @@ docker exec prometheus wget --spider -q http://loki:3100/ready
 **Workaround:** Check model loading status:
 ```bash
 docker exec ollama ollama list
-docker compose logs ollama --tail 50
+docker compose -f compose/ai/ollama/docker-compose.yml logs --tail 50
 ```
 
 ### Hermes Agent — dashboard state file dependency
@@ -645,7 +765,25 @@ docker exec postgres pg_dump -U alwazw -t gitea_* -t n8n_* -t authentik_* aef3 >
 docker exec postgres pg_dumpall -U alwazw | gzip > backups/aef3-full-$(date +%Y%m%d-%H%M%S).sql.gz
 ```
 
-### Volume backup
+### Per-service data directory backup
+
+Each service stores its data under `compose/<category>/<service>/data` and/or `compose/<category>/<service>/config`:
+
+```bash
+# Backup a specific service's data
+tar czf backups/agent-zero-data-$(date +%Y%m%d).tar.gz compose/ai/agent-zero/data
+
+# Backup all AI service data
+tar czf backups/ai-data-$(date +%Y%m%d).tar.gz compose/ai/*/data compose/ai/*/config
+
+# Backup monitoring data
+tar czf backups/monitoring-data-$(date +%Y%m%d).tar.gz compose/monitoring/*/data compose/monitoring/*/config
+
+# Backup all bind-mounted data directories
+tar czf backups/all-compose-data-$(date +%Y%m%d).tar.gz compose/*/data compose/*/config
+```
+
+### Named volume backup
 
 ```bash
 # Backup a named volume
@@ -662,9 +800,6 @@ for vol in hermes_home qdrant_data grafana_data gitea_data n8n_data portainer_da
     -v $(pwd)/backups:/backup \
     alpine tar czf /backup/${vol}-$(date +%Y%m%d).tar.gz -C /data .
 done
-
-# Backup bind-mounted data directories
-tar czf backups/compose-data-$(date +%Y%m%d).tar.gz compose/*/data
 ```
 
 ### Secrets backup
@@ -686,8 +821,11 @@ git status
 git add .
 git commit -m "backup $(date +%Y%m%d-%H%M%S)"
 
-# Export rendered compose config
-docker compose --profile '*' config > backups/compose-config-$(date +%Y%m%d).yml
+# Export rendered compose config for a specific service
+docker compose -f compose/ai/litellm/docker-compose.yml config > backups/litellm-config-$(date +%Y%m%d).yml
+
+# Export all included services config (root orchestrator)
+docker compose config > backups/full-config-$(date +%Y%m%d).yml
 ```
 
 ### Restore from backup
@@ -696,15 +834,18 @@ docker compose --profile '*' config > backups/compose-config-$(date +%Y%m%d).yml
 # Restore database
 gunzip < backups/aef3-full-20260616.sql.gz | docker exec -i postgres psql -U alwazw
 
-# Restore a volume
+# Restore a named volume
 docker run --rm \
   -v gitea_data:/data \
   -v $(pwd)/backups:/backup:ro \
   alpine tar xzf /backup/gitea_data-20260616.tar.gz -C /data
 
+# Restore a service's data directory
+tar xzf backups/agent-zero-data-20260616.tar.gz -C /mnt/d/docker
+
 # Restore secrets
 cp -r secrets-backup-20260616/* secrets/
-docker compose --profile '*' up -d --force-recreate
+docker compose -f compose/<category>/<service>/docker-compose.yml up -d --force-recreate
 ```
 
 ---
@@ -743,7 +884,7 @@ These have `depends_on` conditions or serve as infrastructure:
 
 | Service | Dependents | Restart procedure |
 |---|---|---|
-| `postgres` | authentik-server, authentik-worker, guacamole, gitea, n8n | See data-layer restart below |
+| `postgres` | authentik-server, authentik-worker, guacamole, gitea, n8n | Stop dependents, restart postgres, restart dependents |
 | `redis` | authentik-server, authentik-worker, omniroute | Stop dependents, restart redis, restart dependents |
 | `traefik` | all Traefik-routed services | Brief outage for all routed services |
 | `hermes-agent` | hermes | Restart hermes after hermes-agent |
@@ -751,68 +892,89 @@ These have `depends_on` conditions or serve as infrastructure:
 | `cloudflared-installer` | cloudflared | Runs once; only restart if binary missing |
 | `cloudflared` | (none, but routes traffic) | Brief outbound tunnel outage |
 
-### Profile-based rolling restart procedure
+### Category-based rolling restart procedure
 
 ```bash
 # 1. Monitoring (no critical dependencies)
-docker compose --profile monitoring down
-docker compose --profile monitoring up -d
-docker compose --profile monitoring ps
+for f in compose/monitoring/*/docker-compose.yml; do
+  docker compose -f "$f" down
+done
+for f in compose/monitoring/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
 
 # 2. Management (no critical dependencies)
-docker compose --profile management down
-docker compose --profile management up -d
-docker compose --profile management ps
+for f in compose/management/*/docker-compose.yml; do
+  docker compose -f "$f" down && docker compose -f "$f" up -d
+done
 
 # 3. Productivity (depends on guacd)
-docker compose --profile productivity down
-docker compose --profile productivity up -d
-docker compose --profile productivity ps
+docker compose -f compose/productivity/guacamole/docker-compose.yml down
+docker compose -f compose/productivity/guacd/docker-compose.yml down
+docker compose -f compose/productivity/guacd/docker-compose.yml up -d
+docker compose -f compose/productivity/guacamole/docker-compose.yml up -d
 
-# 4. CI/CD (depends on postgres)
-docker compose --profile ci down
-docker compose --profile ci up -d
-docker compose --profile ci ps
+# 4. CI (depends on postgres)
+for f in compose/ci/*/docker-compose.yml; do
+  docker compose -f "$f" down
+done
+for f in compose/ci/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
 
 # 5. Security (depends on postgres + redis)
-docker compose --profile security down
-docker compose --profile security up -d
-docker compose --profile security ps
+for f in compose/security/*/docker-compose.yml; do
+  docker compose -f "$f" down
+done
+for f in compose/security/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
 
 # 6. Network
-docker compose --profile network down
-docker compose --profile network up -d
-docker compose --profile network ps
+for f in compose/network/*/docker-compose.yml; do
+  docker compose -f "$f" down && docker compose -f "$f" up -d
+done
 
-# 7. AI (depends on redis via omniroute; traefik in this profile)
-docker compose --profile ai down
-docker compose --profile ai up -d
-docker compose --profile ai ps
+# 7. AI (depends on redis via omniroute; traefik routes traffic)
+for f in compose/ai/*/docker-compose.yml; do
+  docker compose -f "$f" down
+done
+for f in compose/ai/*/docker-compose.yml; do
+  docker compose -f "$f" up -d
+done
 ```
 
 ### Data-layer coordinated restart
 
 ```bash
 # Full data layer restart with dependent services
-# Phase 1: Stop all profile-dependent services
-docker compose --profile ci down
-docker compose --profile security down
-docker compose --profile productivity down
+# Phase 1: Stop all dependent services
+docker compose -f compose/ci/gitea/docker-compose.yml down
+docker compose -f compose/ci/n8n/docker-compose.yml down
+docker compose -f compose/security/authentik-server/docker-compose.yml down
+docker compose -f compose/security/authentik-worker/docker-compose.yml down
+docker compose -f compose/security/vaultwarden/docker-compose.yml down
+docker compose -f compose/productivity/guacamole/docker-compose.yml down
 
 # Phase 2: Restart data layer
-docker compose down postgres redis
-docker compose up -d postgres redis
+docker compose -f compose/data/postgres/docker-compose.yml down
+docker compose -f compose/data/redis/docker-compose.yml down
+docker compose -f compose/data/postgres/docker-compose.yml up -d
+docker compose -f compose/data/redis/docker-compose.yml up -d
 
 # Phase 3: Wait for health
-until docker compose ps postgres 2>/dev/null | grep -q healthy; do
+until docker inspect postgres --format '{{.State.Health.Status}}' 2>/dev/null | grep -q healthy; do
   echo "Waiting for postgres..."
   sleep 5
 done
 
 # Phase 4: Restart dependents
-docker compose --profile ci up -d
-docker compose --profile security up -d
-docker compose --profile productivity up -d
+docker compose -f compose/ci/gitea/docker-compose.yml up -d
+docker compose -f compose/ci/n8n/docker-compose.yml up -d
+docker compose -f compose/security/authentik-server/docker-compose.yml up -d
+docker compose -f compose/security/authentik-worker/docker-compose.yml up -d
+docker compose -f compose/security/vaultwarden/docker-compose.yml up -d
+docker compose -f compose/productivity/guacamole/docker-compose.yml up -d
 ```
 
 ---
@@ -824,34 +986,46 @@ docker compose --profile productivity up -d
 ```bash
 cd /mnt/d/docker
 
-# 1. Tear down everything, removing all data
-docker compose --profile '*' down -v
+# 1. Tear down everything via root orchestrator, removing all data
+docker compose down -v
 
-# 2. Remove dangling images
+# 2. Tear down standalone services
+docker compose -f compose/ci/woodpecker/docker-compose.yml down -v 2>/dev/null
+docker compose -f compose/productivity/affine/docker-compose.yml down -v 2>/dev/null
+docker compose -f compose/productivity/plane/docker-compose.yml down -v 2>/dev/null
+docker compose -f compose/security/authentik/docker-compose.yml down -v 2>/dev/null
+
+# 3. Remove dangling images
 docker image prune -af
 
-# 3. Remove unused networks (except the external ones)
+# 4. Remove unused networks (except the external ones)
 docker network prune -f
 
-# 4. Ensure external networks exist
+# 5. Ensure external networks exist
 for net in proxy database ai-ml agent-communication security monitoring; do
   docker network inspect "$net" >/dev/null 2>&1 || docker network create "$net"
 done
 
-# 5. Verify secrets
+# 6. Verify secrets
 ls secrets/*.txt
 
-# 6. Pull fresh images
-docker compose --profile '*' pull
+# 7. Pull fresh images (all included services)
+docker compose pull
 
-# 7. Start everything
-docker compose --profile '*' up -d
+# 8. Start everything (root orchestrator)
+docker compose up -d
 
-# 8. Wait for health checks
+# 9. Start standalone services
+docker compose -f compose/ci/woodpecker/docker-compose.yml up -d 2>/dev/null
+docker compose -f compose/productivity/affine/docker-compose.yml up -d 2>/dev/null
+docker compose -f compose/productivity/plane/docker-compose.yml up -d 2>/dev/null
+docker compose -f compose/security/authentik/docker-compose.yml up -d 2>/dev/null
+
+# 10. Wait for health checks
 sleep 120
-docker compose --profile '*' ps
+docker ps
 
-# 9. Run integration tests
+# 11. Run integration tests
 python3 scripts/integration_test.py
 ```
 
@@ -882,25 +1056,35 @@ echo "new_password_here" > secrets/postgres_password.txt
 #   vw_admin_token: vaultwarden
 #   authentik_secret: authentik-server, authentik-worker
 #   ssh_deploy_key: agent-zero
+#   agent_zero_key: agent-zero
+#   github_token: agent-zero
 
 # Rotate Postgres password (most complex — requires DB-level change too)
 docker exec postgres psql -U alwazw -c "ALTER USER alwazw WITH PASSWORD '$(cat secrets/postgres_password.txt)';"
-docker compose up -d --force-recreate postgres authentik-server authentik-worker guacamole gitea n8n
+docker compose -f compose/data/postgres/docker-compose.yml up -d --force-recreate
+docker compose -f compose/security/authentik-server/docker-compose.yml up -d --force-recreate
+docker compose -f compose/security/authentik-worker/docker-compose.yml up -d --force-recreate
+docker compose -f compose/productivity/guacamole/docker-compose.yml up -d --force-recreate
+docker compose -f compose/ci/gitea/docker-compose.yml up -d --force-recreate
+docker compose -f compose/ci/n8n/docker-compose.yml up -d --force-recreate
 
 # Rotate Redis password
-docker compose stop redis
-# Update secrets/redis_password.txt
-docker compose up -d --force-recreate redis
-docker compose up -d --force-recreate authentik-server authentik-worker omniroute
+docker compose -f compose/data/redis/docker-compose.yml stop
+echo "new_redis_password" > secrets/redis_password.txt
+docker compose -f compose/data/redis/docker-compose.yml up -d --force-recreate
+docker compose -f compose/security/authentik-server/docker-compose.yml up -d --force-recreate
+docker compose -f compose/security/authentik-worker/docker-compose.yml up -d --force-recreate
+docker compose -f compose/ai/omniroute/docker-compose.yml up -d --force-recreate
 
 # Rotate LiteLLM key
-docker compose up -d --force-recreate agent-zero litellm
+docker compose -f compose/ai/agent-zero/docker-compose.yml up -d --force-recreate
+docker compose -f compose/ai/litellm/docker-compose.yml up -d --force-recreate
 
-# Rotate all at once (if rotating everything)
-docker compose --profile '*' up -d --force-recreate
+# Rotate all at once (if rotating everything — root orchestrator)
+docker compose up -d --force-recreate
 
 # 4. Verify
-docker compose --profile '*' ps
+docker ps
 python3 scripts/integration_test.py
 ```
 
@@ -909,191 +1093,93 @@ python3 scripts/integration_test.py
 ```bash
 # If Docker networking is broken (e.g., after WSL2 restart or Windows update):
 
-# 1. Stop all containers
-docker compose --profile '*' down
+# 1. Stop all containers (root orchestrator)
+docker compose down
 
-# 2. Restart Docker (WSL2)
-# From PowerShell (Windows):
-#   wsl --shutdown
-#   # Then restart WSL
-
-# 3. Verify networks exist
-for net in proxy database ai-ml agent-communication security monitoring; do
-  docker network inspect "$net" >/dev/null 2>&1 || docker network create "$net"
+# Also stop standalone services
+for f in compose/ci/woodpecker compose/productivity/affine compose/productivity/plane compose/security/authentik; do
+  docker compose -f "$f/docker-compose.yml" down 2>/dev/null
 done
 
-# 4. Check iptables FORWARD rules
-sudo iptables -L FORWARD -n -v
-sudo iptables -L DOCKER-FORWARD -n -v
+# 2. Restart Docker daemon
+sudo service docker restart
+# Or on systemd: sudo systemctl restart docker
 
-# 5. If FORWARD policy is DROP and no ACCEPT rules, reset Docker
-sudo systemctl restart docker
+# 3. Verify networks
+docker network ls
 
-# 6. Restart stack
-docker compose --profile '*' up -d
-
-# 7. Verify inter-container connectivity
-docker exec agent-zero ping -c 1 litellm
-docker exec litellm ping -c 1 ollama
+# 4. Restart containers
+docker compose up -d
 ```
 
-### Container image recovery
+### Single service disaster recovery
 
 ```bash
-# If images are corrupted or missing:
+# If a service's data is corrupted:
 
-# 1. Remove broken images
-docker rmi $(docker images --filter "dangling=true" -q) 2>/dev/null
+# 1. Stop the service
+docker compose -f compose/<category>/<service>/docker-compose.yml down
 
-# 2. Pull specific image if known
-docker pull postgres:16-alpine
-docker pull redis:7-alpine
-docker pull traefik:latest
+# 2. Back up the corrupted data (in case recovery is possible)
+cp -r compose/<category>/<service>/data compose/<category>/<service>/data-corrupted-$(date +%Y%m%d)
 
-# 3. Pull all images from compose
-docker compose --profile '*' pull
+# 3. Clear the data directory (or specific subdirectories)
+rm -rf compose/<category>/<service>/data/*
 
-# 4. If registry is unreachable, load from backup
-docker load -i /path/to/image-backup.tar
+# 4. Recreate with fresh state
+docker compose -f compose/<category>/<service>/docker-compose.yml up -d
 
-# 5. Rebuild custom images
-docker compose build agent-zero
-
-# 6. Verify
-docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+# 5. If the service uses a named volume instead of bind mounts:
+docker volume rm <volume_name>
+docker compose -f compose/<category>/<service>/docker-compose.yml up -d
 ```
 
-### Postgres data recovery
+### Rapid service isolation
+
+When a single service is misbehaving (high CPU, memory leak, log spam):
 
 ```bash
-# If postgres data is corrupted but backup exists:
+# Disconnect from network (stop without removing)
+docker compose -f compose/<category>/<service>/docker-compose.yml stop
 
-# 1. Stop postgres and dependents
-docker compose --profile ci down
-docker compose --profile security down
-docker compose --profile productivity down
-docker compose stop postgres
+# Or disconnect from specific network
+docker network disconnect <network> <container_name>
 
-# 2. Backup current data
-mv compose/data/postgres/data compose/data/postgres/data.corrupted
+# Inspect resource usage
+docker stats <container_name>
 
-# 3. Restore from dump
-mkdir compose/data/postgres/data
-docker run --rm -i \
-  -v $(pwd)/compose/data/postgres/data:/var/lib/postgresql/data \
-  -v $(pwd)/backups:/backups:ro \
-  postgres:16-alpine bash -c "
-    chown 999:999 /var/lib/postgresql/data &&
-    psql -f /backups/aef3-full-latest.sql.gz
-  "
-
-# 4. Restart
-docker compose up -d postgres
-docker compose --profile ci up -d
-docker compose --profile security up -d
-docker compose --profile productivity up -d
-```
-
-### Traefik ACME certificate recovery
-
-```bash
-# If acme.json is corrupted or certificates expired:
-
-# 1. Backup current state
-cp compose/network/traefik/data/acme.json compose/network/traefik/data/acme.json.bak
-
-# 2. Stop traefik
-docker compose stop traefik
-
-# 3. Remove corrupted acme.json (Traefik will request new certs)
-rm compose/network/traefik/data/acme.json
-
-# 4. Restart
-docker compose up -d traefik
-
-# 5. Monitor certificate issuance
-docker compose logs -f traefik 2>&1 | grep -iE 'acme|certificate|tls'
+# Check if it's the only consumer
+docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' | sort -k2 -rn | head
 ```
 
 ---
 
-## Appendix A: Quick Reference
+## Quick Reference
 
-### Common commands
+### Common command patterns
 
-```bash
-cd /mnt/d/docker
-
-# View all running services
-docker compose --profile '*' ps
-
-# View logs for a service
-docker compose logs -f <name> --tail 100
-
-# Restart a service
-docker compose restart <name>
-
-# Enter a container shell
-docker exec -it <name> sh        # Alpine-based
-docker exec -it <name> bash      # Debian-based
-docker exec -it postgres psql -U alwazw -d aef3
-
-# Check disk usage
-docker system df
-docker compose --profile '*' ps --format '{{.Name}}' | xargs -I{} docker inspect {} --format '{{.Name}}: {{.SizeRw}}'
-
-# Prune unused resources
-docker system prune -af --volumes   # DANGER: removes everything unused
-```
-
-### Port map
-
-| Service | Host Port | Container Port |
-|---|---|---|
-| Traefik HTTP | 80 | 80 |
-| Traefik HTTPS | 443 | 443 |
-| Traefik Dashboard | 8080 | 8080 |
-| Portainer Edge | 8000 | 8000 |
-| Homepage | 3004 | 3000 |
-| Grafana | 3000 | 3000 |
-| OpenWebUI | 3000 | 8080 |
-| Uptime Kuma | 3002 | 3001 |
-| Gitea | 3001 | 3000 |
-| Gitea SSH | 2222 | 22 |
-| Loki | 3100 | 3100 |
-| LiteLLM | 4000 | 4000 |
-| Dockge | 5001 | 5001 |
-| Postgres | 5432 | 5432 |
-| n8n | 5678 | 5678 |
-| Qdrant | 6333 | 6333 |
-| Redis | 6379 | 6379 |
-| MCPO | 8000 | 8000 |
-| SearXNG | 8080 | 8080 |
-| Agent Zero | 8501 | 80 |
-| Agent Zero API | 8081 | 8080 |
-| Hermes | 8787 | 8787 |
-| Authentik | 9000 | 9000 |
-| Prometheus | 9090 | 9090 |
-| Portainer | 9443 | 9443 |
-| Ollama | 11434 | 11434 |
-| Omniroute | 20128 | 20128 |
-
-### Domain map (via Traefik)
-
-| Subdomain | Service |
+| Action | Command |
 |---|---|
-| `chat.${DOMAIN}` | OpenWebUI |
-| `hermes.${DOMAIN}` | Hermes |
-| `omniroute.${DOMAIN}` | Omniroute |
-| `auth.${DOMAIN}` | Authentik |
-| `vault.${DOMAIN}` | Vaultwarden |
-| `gitea.${DOMAIN}` | Gitea |
-| `n8n.${DOMAIN}` | n8n |
-| `rdp.${DOMAIN}` | Guacamole |
-| `traefik.${DOMAIN}` | Traefik Dashboard |
-| `cadvisor.${DOMAIN}` | cAdvisor |
-| `logs.${DOMAIN}` | Dozzle |
-| `portainer.${DOMAIN}` | Portainer |
-| `dockge.${DOMAIN}` | Dockge |
-| `home.${DOMAIN}` | Homepage |
-| `search.${DOMAIN}` | SearXNG |
+| Start single service | `docker compose -f compose/<cat>/<svc>/docker-compose.yml up -d` |
+| Start all (included) | `cd /mnt/d/docker && docker compose up -d` |
+| Stop single service | `docker compose -f compose/<cat>/<svc>/docker-compose.yml down` |
+| Restart single service | `docker compose -f compose/<cat>/<svc>/docker-compose.yml restart` |
+| Recreate single service | `docker compose -f compose/<cat>/<svc>/docker-compose.yml up -d --force-recreate` |
+| Check single service | `docker compose -f compose/<cat>/<svc>/docker-compose.yml ps` |
+| Logs (single service) | `docker compose -f compose/<cat>/<svc>/docker-compose.yml logs --tail 50` |
+| Logs (follow) | `docker compose -f compose/<cat>/<svc>/docker-compose.yml logs -f` |
+| Render config | `docker compose -f compose/<cat>/<svc>/docker-compose.yml config` |
+| Pull image | `docker compose -f compose/<cat>/<svc>/docker-compose.yml pull` |
+
+### Category paths
+
+| Category | Path |
+|---|---|
+| Network | `compose/network/` |
+| AI | `compose/ai/` |
+| Data | `compose/data/` |
+| Security | `compose/security/` |
+| Monitoring | `compose/monitoring/` |
+| Management | `compose/management/` |
+| CI | `compose/ci/` |
+| Productivity | `compose/productivity/` |

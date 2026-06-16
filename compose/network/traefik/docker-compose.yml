@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --ping=true
+      - --ping.entrypoint=ping
+      - --entrypoints.ping.address=:8080
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --certificatesresolvers.cloudflare.acme.dnschallenge=true
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.email=wafic@wazzan.us
+      - --certificatesresolvers.cloudflare.acme.storage=/data/acme.json
+      - --log.level=INFO
+      - --accesslog=true
+    ports:
+      - "0.0.0.0:${PORT_TRAEFIK_HTTP}:80"
+      - "0.0.0.0:${PORT_TRAEFIK_HTTPS}:443"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/data
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    secrets:
+      - cf_api_email
+      - cf_dns_api_token
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/ping"]
+      interval: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "homepage.group=Network"
+      - "homepage.name=Traefik"
+      - "homepage.icon=traefik.png"
+      - "homepage.href=https://traefik.${DOMAIN}"
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  cf_api_email:
+    external: true
+  cf_dns_api_token:
+    external: true

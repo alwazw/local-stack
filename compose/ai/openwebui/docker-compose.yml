@@ -1,19 +1,23 @@
+version: "3.8"
+
 services:
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: openwebui
     restart: unless-stopped
-    env_file: [../../../.env]
+    profiles: [ai]
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
-      WEBUI_SECRET_KEY_FILE: "${WEBUI_SECRET_KEY_FILE}"
+      WEBUI_SECRET_KEY_FILE: /run/secrets/webui_secret_key
+    ports:
+      - "127.0.0.1:${PORT_OPENWEBUI}:8080"
     volumes:
       - ./data:/app/backend/data
+    secrets:
+      - webui_secret_key
     networks:
       - proxy
       - ai-ml
-    secrets:
-      - litellm_key
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.openwebui.rule=Host(`chat.${DOMAIN}`)"
@@ -23,10 +27,12 @@ services:
       - "homepage.name=OpenWebUI"
       - "homepage.href=https://chat.${DOMAIN}"
 
-secrets:
-  litellm_key:
-    file: ../../../secrets/litellm_key.txt
-
 networks:
-  proxy: {external: true}
-  ai-ml: {external: true}
+  proxy:
+    external: true
+  ai-ml:
+    external: true
+
+secrets:
+  webui_secret_key:
+    external: true

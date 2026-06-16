@@ -1,14 +1,11 @@
-# File: ~/docker/compose/ai/agent-zero/docker-compose.yml
+version: "3.8"
+
 services:
   agent-zero:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: agent-zero-langgraph:latest
     container_name: agent-zero
     restart: unless-stopped
-    env_file:
-      - ../../../.env
+    profiles: [ai]
     environment:
       LLM_PROVIDER: "openai"
       LLM_BASE_URL: "http://litellm:4000"
@@ -20,23 +17,25 @@ services:
       AUDIT_DIR: /app/audit
       MEMORY_DIR: /app/data/memory
       MCP_BASE_URL: "http://mcpo:8000"
-      SSH_KEY_PATH: "/secrets/ssh_deploy_key"
-      SSH_USER: "${SSH_DEPLOY_USER:-deploy}"
-      SSH_DEPLOY_HOST: "${SSH_DEPLOY_HOST:-vm2}"
-      SSH_DEPLOY_PORT: "${SSH_DEPLOY_PORT:-22}"
-      LITELLM_MASTER_KEY_FILE: "/secrets/litellm_key.txt"
+      SSH_KEY_PATH: "/run/secrets/ssh_deploy_key"
+      SSH_USER: "deploy"
+      LITELLM_MASTER_KEY_FILE: "/run/secrets/litellm_key"
+      AGENT_ZERO_API_KEY_FILE: "/run/secrets/agent_zero_key"
     volumes:
       - ./data:/app/data
       - ./work_dir:/app/work_dir
-      - ../../projects:/app/projects
-      - ../../agents/qwen:/app/audit
-      - ../../../secrets:/secrets:ro
+      - ../../../projects:/app/projects
+      - ../../../agents/qwen:/app/audit
     ports:
-      - "${PORT_AGENTZERO}:80"
-      - "${PORT_AGENTZERO_API:-8081}:8080"
+      - "127.0.0.1:${PORT_AGENTZERO}:80"
+      - "127.0.0.1:${PORT_AGENTZERO_API:-8081}:8080"
     networks:
       - ai-ml
       - agent-communication
+    secrets:
+      - litellm_key
+      - ssh_deploy_key
+      - agent_zero_key
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=Agent-Zero"
@@ -54,4 +53,12 @@ networks:
   ai-ml:
     external: true
   agent-communication:
+    external: true
+
+secrets:
+  litellm_key:
+    external: true
+  ssh_deploy_key:
+    external: true
+  agent_zero_key:
     external: true

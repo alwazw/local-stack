@@ -7,7 +7,7 @@ search:
   autocomplete: "google"
   default_lang: "en"
 server:
-  secret_key: "changeme-replace-with-random-string"
+  secret_key: "6d442253cc32d8d4bb8849c627871d5c4bf702883d29b9571980802c22e4c10b"
   limiter: false
   image_proxy: true
 ui:

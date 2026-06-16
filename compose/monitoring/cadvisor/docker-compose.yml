@@ -1,15 +1,11 @@
-# cAdvisor — Container resource usage and performance
-# Profile: monitoring
-# Network: monitoring, proxy
-# Port: 8080 (internal, mapped via Traefik)
+version: "3.8"
+
 services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     restart: unless-stopped
     profiles: [monitoring]
-    devices:
-      - /dev/kmsg
     privileged: true
     volumes:
       - /:/rootfs:ro
@@ -31,3 +27,9 @@ services:
       - "homepage.icon=docker.png"
       - "homepage.href=https://cadvisor.${DOMAIN}"
       - "homepage.description=Container resource monitoring"
+
+networks:
+  monitoring:
+    external: true
+  proxy:
+    external: true

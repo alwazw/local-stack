@@ -1,8 +1,5 @@
-# Qdrant — Vector Database for Agent Zero embeddings
-# Profile: ai
-# Network: ai-ml
-# Secrets: none
-# Port: 6333 (localhost only)
+version: "3.8"
+
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -10,10 +7,9 @@ services:
     restart: unless-stopped
     profiles: [ai]
     volumes:
-      - ./compose/ai/qdrant/data:/qdrant/storage
+      - qdrant_data:/qdrant/storage
     ports:
       - "127.0.0.1:${PORT_QDRANT:-6333}:6333"
-      - "127.0.0.1:6334:6334"
     networks:
       - ai-ml
     healthcheck:
@@ -28,3 +24,11 @@ services:
       - "homepage.icon=qdrant.png"
       - "homepage.href=http://localhost:${PORT_QDRANT:-6333}/dashboard"
       - "homepage.description=Vector Database for embeddings"
+
+networks:
+  ai-ml:
+    external: true
+
+volumes:
+  qdrant_data:
+    external: true

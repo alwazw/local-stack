@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  hermes-agent:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-agent
+    command: gateway run
+    restart: unless-stopped
+    profiles: [ai]
+    stdin_open: true
+    tty: true
+    environment:
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+      GATEWAY_ALLOW_ALL_USERS: "true"
+      HERMES_DASHBOARD_INSECURE: "1"
+    volumes:
+      - hermes_home:/home/hermes/.hermes
+      - hermes_agent_src:/opt/hermes
+    networks:
+      - ai-ml
+      - agent-communication
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /home/hermes/.hermes/gateway_state.json && python3 -c \"import json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); exit(0 if d.get('gateway_state')=='running' else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  ai-ml:
+    external: true
+  agent-communication:
+    external: true
+
+volumes:
+  hermes_home:
+  hermes_agent_src:

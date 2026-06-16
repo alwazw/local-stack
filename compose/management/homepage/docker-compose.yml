@@ -1,7 +1,5 @@
-# Homepage — Modern application dashboard
-# Profile: management
-# Network: proxy
-# Port: 3004
+version: "3.8"
+
 services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
@@ -11,7 +9,7 @@ services:
     environment:
       - LOG_LEVEL=info
     volumes:
-      - ./compose/management/homepage/config:/app/config
+      - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "127.0.0.1:${PORT_HOMEPAGE:-3004}:3000"
@@ -28,3 +26,7 @@ services:
       - "homepage.icon=homepage.png"
       - "homepage.href=https://home.${DOMAIN}"
       - "homepage.description=Application dashboard"
+
+networks:
+  proxy:
+    external: true

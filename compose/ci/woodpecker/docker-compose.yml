@@ -16,7 +16,7 @@ services:
       WOODPECKER_GITEA_URL: "https://gitea.${DOMAIN}"
       WOODPECKER_AGENT_SECRET_FILE: /run/secrets/gitea_secret
       WOODPECKER_DATABASE_BACKEND: postgres
-      WOODPECKER_DATABASE_DATASOURCE: "postgres://${POSTGRES_USER}:changeme@postgres:5432/woodpecker?sslmode=disable"
+      WOODPECKER_DATABASE_DATASOURCE: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/woodpecker?sslmode=disable"
     volumes:
       - woodpecker_data:/var/lib/woodpecker
     ports:

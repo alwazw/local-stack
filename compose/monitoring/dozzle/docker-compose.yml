@@ -1,7 +1,5 @@
-# Dozzle — Real-time Docker log viewer
-# Profile: monitoring
-# Network: proxy
-# Port: 8080 (internal)
+version: "3.8"
+
 services:
   dozzle:
     image: amir20/dozzle:latest
@@ -23,3 +21,7 @@ services:
       - "homepage.icon=dozzle.png"
       - "homepage.href=https://logs.${DOMAIN}"
       - "homepage.description=Real-time Docker log viewer"
+
+networks:
+  proxy:
+    external: true

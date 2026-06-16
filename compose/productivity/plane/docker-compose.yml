@@ -24,8 +24,8 @@ services:
         condition: service_healthy
     environment:
       WEB_URL: "https://plane.${DOMAIN}"
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:changeme@postgres:5432/plane"
-      REDIS_URL: "redis://:changeme@redis:6379/"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/plane"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/"
       SECRET_KEY_FILE: /run/secrets/gitea_secret
     networks:
       - proxy
@@ -41,8 +41,8 @@ services:
     profiles: [productivity]
     command: ["python", "manage.py", "worker"]
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:changeme@postgres:5432/plane"
-      REDIS_URL: "redis://:changeme@redis:6379/"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/plane"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/"
     networks:
       - ai-ml
       - database
