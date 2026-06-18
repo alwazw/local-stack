@@ -1,0 +1,247 @@
+# ====================================================================
+# LITELLM GATEWAY ORCHESTRATION ENGINE
+# ARCHITECTURE: MULTI-KEY ROTATION WITH COHESIVE PRIORITY ORDERING
+# SYSTEM ALIGNMENT: AGENT ZERO & HERMES AGENT COMPATIBILITY MATRIX
+# ====================================================================
+
+model_list:
+  # ====================================================================
+  # GROUP 1: ADVANCED COMPUTATIONAL LOGIC (openai/morpheus-main-model)
+  # Task: Code generation, complex execution planning, sub-agent spawning.
+  # Fallback Strategy: OpenRouter Free -> Nvidia NIM -> Google Gemini Pro -> Groq 70B -> Local Ollama
+  # ====================================================================
+
+  # -- Priority 1: OpenRouter Agentic Specialist (3 Decoupled Accounts) --
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: openrouter/openrouter/owl-alpha
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 20
+      tpm: 1000000
+      order: 1
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: openrouter/openrouter/owl-alpha
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_2"
+      rpm: 20
+      tpm: 1000000
+      order: 1
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: openrouter/openrouter/owl-alpha
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_3"
+      rpm: 20
+      tpm: 1000000
+      order: 1
+
+  # -- Priority 2: Nvidia NIM Hosted Flagship Orchestrator (1 Developer Key) --
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: nvidia_nim/nemotron-3-ultra
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: "os.environ/NVIDIA_NIM_KEY_1"
+      rpm: 40
+      tpm: 1000000
+      order: 2
+
+  # -- Priority 3: Google AI Studio Gemini 2.5 Pro (3 Decoupled Projects) --
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 5
+      tpm: 250000
+      order: 3
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: "os.environ/GEMINI_API_KEY_2"
+      rpm: 5
+      tpm: 250000
+      order: 3
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: "os.environ/GEMINI_API_KEY_3"
+      rpm: 5
+      tpm: 250000
+      order: 3
+
+  # -- Priority 4: Groq Hosted Llama 3.3 70B (1 Organizational Key) --
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: "os.environ/GROQ_API_KEY_1"
+      rpm: 30
+      tpm: 12000
+      order: 4
+
+  # -- Priority 5: Local Hard-Floor Silicon (Ollama) --
+  - model_name: openai/morpheus-main-model
+    litellm_params:
+      model: ollama/deepseek-r1:8b
+      api_base: http://ollama:11434
+      rpm: 1000
+      tpm: 500000
+      order: 5
+
+  # ====================================================================
+  # GROUP 2: LOW-LATENCY UTILITY ENGINE (openai/morpheus-utility-model)
+  # Task: JSON extraction, state tracking, context compression, command checks.
+  # Fallback Strategy: Gemini 3.1 Flash-Lite -> Alibaba Qwen 3.5 -> Groq 8B -> OpenRouter Free -> Local Ollama
+  # ====================================================================
+
+  # -- Priority 1: Google AI Studio Gemini 2.5 Flash (3 Decoupled Keys) --
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 30
+      tpm: 1000000
+      order: 1
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_2"
+      rpm: 30
+      tpm: 1000000
+      order: 1
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_3"
+      rpm: 30
+      tpm: 1000000
+      order: 1
+
+  # -- Priority 2: Alibaba Cloud Qwen 3.5 Plus (2 Workspace Keys) --
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: openai/qwen3.5-plus
+      api_base: https://ws-3dpemgx0bzu13nbz.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      api_key: "os.environ/ALIBABA_MODELSTUDIO_KEY_1"
+      rpm: 20
+      tpm: 60000
+      order: 2
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: openai/qwen3.5-plus
+      api_base: https://ws-w380hg5docinti2e.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      api_key: "os.environ/ALIBABA_MODELSTUDIO_KEY_2"
+      rpm: 20
+      tpm: 60000
+      order: 2
+
+  # -- Priority 3: Groq Cloud Llama 3.1 8B (1 Organizational Key) --
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: "os.environ/GROQ_API_KEY_1"
+      rpm: 30
+      tpm: 6000
+      order: 3
+
+  # -- Priority 4: OpenRouter Free Gemini Flash Fallback (3 Decoupled Keys) --
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 4
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_2"
+      rpm: 10
+      tpm: 30000
+      order: 4
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_3"
+      rpm: 10
+      tpm: 30000
+      order: 4
+
+  # -- Priority 5: Local Hard-Floor Fast Utility (Ollama) --
+  - model_name: openai/morpheus-utility-model
+    litellm_params:
+      model: ollama/dolphin3
+      api_base: http://ollama:11434
+      rpm: 1000
+      tpm: 500000
+      order: 5
+
+  # ====================================================================
+  # GROUP 3: LOCAL EMBEDDING PIPELINE (openai/morpheus-embedding-model)
+  # Task: Privacy-focused semantic database indexing.
+  # Fallback Strategy: Local hardware loop only (Zero Data Leakage).
+  # ====================================================================
+  - model_name: openai/morpheus-embedding-model
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: http://ollama:11434
+
+# ====================================================================
+# GATEWAY COOLDOWN, ROTATION AND HEURISTIC ROUTER SETTINGS
+# ====================================================================
+router_settings:
+  # usage-based-routing minimizes RPM utilization and balances active load across nodes.
+  routing_strategy: usage-based-routing
+  
+  # Number of retries attempted within a priority band before escalating up the order ladder.
+  num_retries: 3
+  
+  # Quarantines a failing key/endpoint for 60 seconds upon a 429 response.
+  cooldown_time: 60
+  allowed_fails: 1
+
+  # Local pre-call rate check blocks request dispatching if token limits are saturated.
+  optional_pre_call_checks:
+    - enforce_model_rate_limits
+
+  # ====================================================================
+  # COHESIVE SYSTEM ALIAS & TYPO MITIGATION LAYER
+  # Resolves framework-specific requests directly to our optimized pools.
+  # ====================================================================
+  model_group_alias:
+    # -- Agent Zero Typo Handling --
+    "openai/morpheus-utitlity-model": "openai/morpheus-utility-model"
+    "openai/morpheus-embeding-model": "openai/morpheus-embedding-model"
+    # -- Agent Zero Core Redirection --
+    "openai/morpheus-main-tier2": "openai/morpheus-main-model"
+    "openai/morpheus-utility-tier2": "openai/morpheus-utility-model"
+    "openai/morpheus-omni-free": "openai/morpheus-utility-model"
+    "openai/morpheus-openrouter-free": "openai/morpheus-main-model"
+    "openai/morpheus-local-fallback": "openai/morpheus-main-model"
+    # -- Hermes Agent Specific Slot Mappings --
+    "gemini-2.5-pro": "openai/morpheus-main-model"
+    "gemini-2.5-flash": "openai/morpheus-utility-model"
+    "google/gemini-2.5-flash": "openai/morpheus-utility-model"
+    "anthropic/claude-opus-4.7": "openai/morpheus-main-model"
+    "nousresearch/hermes-3-llama-3.1-405b:free": "openai/morpheus-main-model"
+    "openrouter/google/gemini-2.5-flash:free": "openai/morpheus-utility-model"
+    "ollama/nomic-embed-text": "openai/morpheus-embedding-model"
+
+  # ====================================================================
+  # GROUP-TO-GROUP ESCALATION FAILOVERS
+  # Executed only if an entire group's order-based roster is exhausted.
+  # ====================================================================
+  fallbacks:
+    - "openai/morpheus-main-model": ["openai/morpheus-utility-model"]
+    - "openai/morpheus-embedding-model": ["openai/morpheus-utility-model"]
+
+# ====================================================================
+# ADVANCED ENGINE GLOBAL SETTINGS
+# ====================================================================
+litellm_settings:
+  # drop_params strips custom framework settings to prevent upstream JSON errors.
+  drop_params: true
+  set_verbose: false

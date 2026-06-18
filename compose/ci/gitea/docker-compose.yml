@@ -61,9 +61,3 @@ networks:
 volumes:
   gitea_data:
     external: true
-
-secrets:
-  postgres_password:
-    external: true
-  gitea_secret:
-    external: true

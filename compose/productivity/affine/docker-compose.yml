@@ -3,31 +3,53 @@
 # Network: proxy, database
 # Port: 8083
 services:
-  affine:
-    image: ghcr.io/toeverything/affine-graphql:stable
-    container_name: affine
-    restart: unless-stopped
+  affine_migration:
+    image: ghcr.io/toeverything/affine:stable
+    container_name: affine-migration
     profiles: [productivity]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ['node', './scripts/self-host-predeploy.js']
     environment:
       NODE_ENV: production
       REDIS_SERVER_HOST: redis
-      REDIS_SERVER_PASSWORD_FILE: /run/secrets/redis_password
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/affine"
-      NODE_OPTIONS: "--import=./scripts/register.js"
+      AFFINE_INDEXER_ENABLED: "false"
     volumes:
       - affine_data:/root/.affine
-    ports:
-      - "127.0.0.1:${PORT_AFFINE:-8083}:3010"
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - ../../../secrets/redis_password.txt:/run/secrets/redis_password:ro
+      - ../../../secrets/affine_database_url.txt:/run/secrets/affine_database_url:ro
     networks:
-      - proxy
       - database
-    secrets:
-      - redis_password
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  affine:
+    image: ghcr.io/toeverything/affine:stable
+    container_name: affine
+    restart: unless-stopped
+    profiles: [productivity]
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["node", "./dist/main.js"]
+    environment:
+      NODE_ENV: production
+      REDIS_SERVER_HOST: redis
+      AFFINE_INDEXER_ENABLED: "false"
+    volumes:
+      - affine_data:/root/.affine
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - ../../../secrets/redis_password.txt:/run/secrets/redis_password:ro
+      - ../../../secrets/affine_database_url.txt:/run/secrets/affine_database_url:ro
+    ports:
+      - "127.0.0.1:${PORT_AFFINE:-8083}:3010"
+    networks:
+      - proxy
+      - database
+    depends_on:
+      affine_migration:
+        condition: service_completed_successfully
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.affine.rule=Host(`affine.${DOMAIN}`)"
@@ -39,3 +61,6 @@ services:
       - "homepage.icon=affine.png"
       - "homepage.href=https://affine.${DOMAIN}"
       - "homepage.description=Collaborative knowledge base"
+
+volumes:
+  affine_data:

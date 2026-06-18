@@ -22,8 +22,16 @@ services:
       API_SERVER_HOST: "0.0.0.0"
       API_SERVER_KEY: "your-super-secret-key-here" # Create any key you want
     volumes:
+# Persistent tracking layers
       - hermes_home:/home/hermes/.hermes
       - hermes_agent_src:/opt/hermes
+# 1. FIXED DRIVE ACCESS: Give me visibility into your actual agent directory
+# # Maps your entire host drive root into the container
+      - /mnt/d/docker:/mnt/d/docker
+      - /:/host
+# 2. FIXED SSH PRIVILEGES: Mount your actual PRIVATE key into the hermes user workspace
+      - ~/.ssh/id_ed25519:/home/hermes/.ssh/id_ed25519:ro
+      - ~/.ssh/known_hosts:/home/hermes/.ssh/known_hosts:ro
     ports:
       - "127.0.0.1:8642:8642" # Exposes the API endpoint to your host     network
     networks:

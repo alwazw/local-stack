@@ -57,9 +57,3 @@ services:
 networks:
   proxy:
     external: true
-
-secrets:
-  cf_api_email:
-    external: true
-  cf_dns_api_token:
-    external: true

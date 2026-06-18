@@ -1,0 +1,291 @@
+# Suggested LiteLLM model additions
+# Generated: 2026-06-18 07:46 UTC
+# Add these under model_list: in config.yml
+
+  # openrouter/owl-alpha — long-context, ctx=1048756, free
+  - model_name: owl-alpha
+    litellm_params:
+      model: openrouter/owl-alpha
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # google/lyria-3-pro-preview — long-context, ctx=1048576, free
+  - model_name: lyria-3-pro-preview
+    litellm_params:
+      model: google/lyria-3-pro-preview
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # google/lyria-3-clip-preview — long-context, ctx=1048576, free
+  - model_name: lyria-3-clip-preview
+    litellm_params:
+      model: google/lyria-3-clip-preview
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # qwen/qwen3-coder:free — long-context, ctx=1048576, free
+  - model_name: qwen3-coder:free
+    litellm_params:
+      model: qwen/qwen3-coder:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # gemini/gemini-2.0-flash — utility, ctx=1048576, free
+  - model_name: gemini-2.0-flash
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-2.0-flash-001 — utility, ctx=1048576, free
+  - model_name: gemini-2.0-flash-001
+    litellm_params:
+      model: gemini/gemini-2.0-flash-001
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-2.0-flash-lite-001 — utility, ctx=1048576, free
+  - model_name: gemini-2.0-flash-lite-001
+    litellm_params:
+      model: gemini/gemini-2.0-flash-lite-001
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-2.0-flash-lite — utility, ctx=1048576, free
+  - model_name: gemini-2.0-flash-lite
+    litellm_params:
+      model: gemini/gemini-2.0-flash-lite
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-flash-latest — utility, ctx=1048576, free
+  - model_name: gemini-flash-latest
+    litellm_params:
+      model: gemini/gemini-flash-latest
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-flash-lite-latest — utility, ctx=1048576, free
+  - model_name: gemini-flash-lite-latest
+    litellm_params:
+      model: gemini/gemini-flash-lite-latest
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-2.5-flash-lite — utility, ctx=1048576, free
+  - model_name: gemini-2.5-flash-lite
+    litellm_params:
+      model: gemini/gemini-2.5-flash-lite
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-3-flash-preview — utility, ctx=1048576, free
+  - model_name: gemini-3-flash-preview
+    litellm_params:
+      model: gemini/gemini-3-flash-preview
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-3.1-flash-lite-preview — utility, ctx=1048576, free
+  - model_name: gemini-3.1-flash-lite-preview
+    litellm_params:
+      model: gemini/gemini-3.1-flash-lite-preview
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-3.1-flash-lite — utility, ctx=1048576, free
+  - model_name: gemini-3.1-flash-lite
+    litellm_params:
+      model: gemini/gemini-3.1-flash-lite
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-3.5-flash — utility, ctx=1048576, free
+  - model_name: gemini-3.5-flash
+    litellm_params:
+      model: gemini/gemini-3.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # gemini/gemini-robotics-er-1.5-preview — long-context, ctx=1048576, free
+  - model_name: gemini-robotics-er-1.5-preview
+    litellm_params:
+      model: gemini/gemini-robotics-er-1.5-preview
+      api_key: "os.environ/GEMINI_API_KEY_1"
+      rpm: 15
+      tpm: 1000000
+      order: 3
+
+  # nvidia/nemotron-3-ultra-550b-a55b:free — long-context, ctx=1000000, free
+  - model_name: nemotron-3-ultra-550b-a55b:free
+    litellm_params:
+      model: nvidia/nemotron-3-ultra-550b-a55b:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # nvidia/nemotron-3-super-120b-a12b:free — long-context, ctx=1000000, free
+  - model_name: nemotron-3-super-120b-a12b:free
+    litellm_params:
+      model: nvidia/nemotron-3-super-120b-a12b:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # nex-agi/nex-n2-pro:free — long-context, ctx=262144, free
+  - model_name: nex-n2-pro:free
+    litellm_params:
+      model: nex-agi/nex-n2-pro:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # poolside/laguna-xs.2:free — long-context, ctx=262144, free
+  - model_name: laguna-xs.2:free
+    litellm_params:
+      model: poolside/laguna-xs.2:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # poolside/laguna-m.1:free — long-context, ctx=262144, free
+  - model_name: laguna-m.1:free
+    litellm_params:
+      model: poolside/laguna-m.1:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # google/gemma-4-26b-a4b-it:free — long-context, ctx=262144, free
+  - model_name: gemma-4-26b-a4b-it:free
+    litellm_params:
+      model: google/gemma-4-26b-a4b-it:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # google/gemma-4-31b-it:free — long-context, ctx=262144, free
+  - model_name: gemma-4-31b-it:free
+    litellm_params:
+      model: google/gemma-4-31b-it:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # qwen/qwen3-next-80b-a3b-instruct:free — long-context, ctx=262144, free
+  - model_name: qwen3-next-80b-a3b-instruct:free
+    litellm_params:
+      model: qwen/qwen3-next-80b-a3b-instruct:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # cohere/north-mini-code:free — long-context, ctx=256000, free
+  - model_name: north-mini-code:free
+    litellm_params:
+      model: cohere/north-mini-code:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free — long-context, ctx=256000, free
+  - model_name: nemotron-3-nano-omni-30b-a3b-reasoning:free
+    litellm_params:
+      model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # nvidia/nemotron-3-nano-30b-a3b:free — long-context, ctx=256000, free
+  - model_name: nemotron-3-nano-30b-a3b:free
+    litellm_params:
+      model: nvidia/nemotron-3-nano-30b-a3b:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # openrouter/free — long-context, ctx=200000, free
+  - model_name: free
+    litellm_params:
+      model: openrouter/free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # openai/gpt-oss-120b:free — long-context, ctx=131072, free
+  - model_name: gpt-oss-120b:free
+    litellm_params:
+      model: openai/gpt-oss-120b:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3
+
+  # openai/gpt-oss-20b:free — long-context, ctx=131072, free
+  - model_name: gpt-oss-20b:free
+    litellm_params:
+      model: openai/gpt-oss-20b:free
+      api_base: https://openrouter.ai/api/v1
+      api_key: "os.environ/OPENROUTER_KEY_1"
+      rpm: 10
+      tpm: 30000
+      order: 3

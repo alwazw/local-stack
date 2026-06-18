@@ -38,7 +38,3 @@ networks:
     external: true
   ai-ml:
     external: true
-
-secrets:
-  webui_secret_key:
-    external: true

@@ -6,20 +6,45 @@ services:
     container_name: litellm
     restart: unless-stopped
     profiles: [ai]
+    entrypoint: ["/entrypoint-wrapper.sh"]
     environment:
-      LITELLM_MODEL: "ollama/llama3.1:8b"
       OLLAMA_API_BASE: "http://ollama:11434"
-      LITELLM_MASTER_KEY_FILE: "/run/secrets/litellm_key"
+      DATABASE_URL_FILE: /run/secrets/litellm_database_url
+      STORE_MODEL_IN_DB: "False"
+      LITELLM_MASTER_KEY_FILE: /run/secrets/litellm_key
+      OPENROUTER_KEY_1_FILE: /run/secrets/openrouter_key_1
+      OPENROUTER_KEY_2_FILE: /run/secrets/openrouter_key_2
+      OPENROUTER_KEY_3_FILE: /run/secrets/openrouter_key_3
+      NVIDIA_NIM_KEY_1_FILE: /run/secrets/nvidia_nim_key_1
+      GEMINI_API_KEY_1_FILE: /run/secrets/gemini_key_1
+      GEMINI_API_KEY_2_FILE: /run/secrets/gemini_key_2
+      GEMINI_API_KEY_3_FILE: /run/secrets/gemini_key_3
+      GROQ_API_KEY_1_FILE: /run/secrets/grok_key_1
+      ALIBABA_MODELSTUDIO_KEY_1_FILE: /run/secrets/alibaba_key_1
+      ALIBABA_MODELSTUDIO_KEY_2_FILE: /run/secrets/alibaba_key_2
+      NOVITA_API_KEY_1_FILE: /run/secrets/novita_key_1
       DEBUG: 1
     ports:
       - "127.0.0.1:${PORT_LITELLM}:4000"
     volumes:
       - ./config:/app/config
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     networks:
       - proxy
       - ai-ml
     secrets:
       - litellm_key
+      - openrouter_key_1
+      - openrouter_key_2
+      - openrouter_key_3
+      - nvidia_nim_key_1
+      - gemini_key_1
+      - gemini_key_2
+      - gemini_key_3
+      - grok_key_1
+      - alibaba_key_1
+      - alibaba_key_2
+      - novita_key_1
     labels:
       - "homepage.group=AI Core"
       - "homepage.name=LiteLLM"
@@ -37,8 +62,4 @@ networks:
   proxy:
     external: true
   ai-ml:
-    external: true
-
-secrets:
-  litellm_key:
     external: true

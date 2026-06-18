@@ -40,7 +40,3 @@ volumes:
 networks:
   proxy:
     external: true
-
-secrets:
-  cf_tunnel_token:
-    external: true

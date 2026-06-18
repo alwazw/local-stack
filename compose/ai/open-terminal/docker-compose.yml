@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  open-terminal:
+    image: ghcr.io/gethomepage/open-terminal:latest
+    container_name: open-terminal
+    restart: unless-stopped
+    profiles: [ai]
+    environment:
+      - LOG_LEVEL=info
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./config:/app/config
+    ports:
+      - "127.0.0.1:${PORT_OPEN_TERMINAL:-5000}:5000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.open-terminal.rule=Host(`terminal.${DOMAIN}`)"
+      - "traefik.http.routers.open-terminal.entrypoints=websecure"
+      - "traffik.http.routers.open-terminal.tls.certresolver=cloudflare"
+      - "traefik.http.services.open-terminal.loadbalancer.server.port=5000"
+      - "homepage.group=AI Core"
+      - "homepage.name=Open Terminal"
+      - "homepage.icon=terminal.png"
+      - "homepage.href=https://terminal.${DOMAIN}"
+      - "homepage.description=Web‑based terminal interface"
+
+networks:
+  proxy:
+    external: true

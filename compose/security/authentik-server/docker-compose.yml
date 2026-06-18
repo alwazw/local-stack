@@ -43,11 +43,3 @@ networks:
 volumes:
   authentik_media:
     external: true
-
-secrets:
-  authentik_secret:
-    external: true
-  redis_password:
-    external: true
-  postgres_password:
-    external: true

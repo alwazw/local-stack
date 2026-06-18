@@ -9,7 +9,9 @@ services:
     environment:
       LLM_PROVIDER: "openai"
       LLM_BASE_URL: "http://litellm:4000"
-      LLM_MODEL: "ollama/llama3.1:8b"
+      LLM_MODEL: "openai/morpheus-main-model"
+      LLM_UTILITY_MODEL: "openai/morpheus-utility-model"
+      LLM_EMBEDDING_MODEL: "openai/morpheus-embedding-model"
       QDRANT_HOST: "qdrant"
       QDRANT_PORT: "${PORT_QDRANT}"
       WORK_DIR: /app/work_dir
@@ -53,12 +55,4 @@ networks:
   ai-ml:
     external: true
   agent-communication:
-    external: true
-
-secrets:
-  litellm_key:
-    external: true
-  ssh_deploy_key:
-    external: true
-  agent_zero_key:
     external: true

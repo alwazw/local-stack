@@ -1,0 +1,250 @@
+{
+  "name": "Daily Model Intelligence Aggregator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "cron-trigger",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [250, 300],
+      "typeVersion": 1,
+      "data": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 6,
+              "minute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://openrouter.ai/api/v1/models",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.openrouterKey1}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-openrouter",
+      "name": "Fetch OpenRouter Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 100],
+      "typeVersion": 4.2,
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models?key={{$credentials.geminiKey1}}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-gemini",
+      "name": "Fetch Gemini Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 250],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.groq.com/openai/v1/models",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.groqKey1}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-groq",
+      "name": "Fetch Groq Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 400],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.novita.ai/v3/openai/models",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.novitaKey1}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-novita",
+      "name": "Fetch Novita Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 550],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://integrate.api.nvidia.com/v1/models",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.nvidiaNimKey1}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-nvidia",
+      "name": "Fetch Nvidia NIM Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 700],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all provider model data\n// Input: items from all fetch nodes\nconst allModels = [];\nconst freeModels = [];\nconst providerStats = {};\n\nfor (const item of $input.all()) {\n  const provider = item.json.provider || 'unknown';\n  const models = item.json.models || item.json.data || [];\n  \n  providerStats[provider] = { total: models.length, free: 0 };\n  \n  for (const m of models) {\n    const promptPrice = parseFloat(m.pricing?.prompt || m.prompt_price || '0');\n    const completionPrice = parseFloat(m.pricing?.completion || m.completion_price || '0');\n    const isFree = promptPrice === 0 && completionPrice === 0;\n    const ctx = m.context_length || m.inputTokenLimit || 0;\n    \n    allModels.push({\n      provider,\n      model_id: m.id || m.model_id,\n      name: (m.id || m.model_id).split('/').pop(),\n      context_length: ctx,\n      is_free: isFree,\n      prompt_price: promptPrice,\n      completion_price: completionPrice,\n      tier: classifyTier(m.id || m.model_id, ctx, isFree),\n      role: classifyRole(m.id || m.model_id, ctx),\n    });\n    \n    if (isFree) {\n      freeModels.push(allModels[allModels.length - 1]);\n      providerStats[provider].free++;\n    }\n  }\n}\n\nfunction classifyTier(name, ctx, isFree) {\n  const n = name.toLowerCase();\n  if (['opus','o1','o3','405b','70b','ultra','2.5-pro'].some(s => n.includes(s)) && ctx >= 32768) return 'T1-ULTRA';\n  if (name.includes('ollama')) return 'T4-LOCAL';\n  if (isFree) return 'T3-FREE';\n  return 'T2-FAST';\n}\n\nfunction classifyRole(name, ctx) {\n  const n = name.toLowerCase();\n  if (['o1','o3','opus','2.5-pro','405b','70b'].some(s => n.includes(s))) return 'reasoning';\n  if (['flash','8b','turbo','instant','lite'].some(s => n.includes(s))) return 'utility';\n  if (['embed','nomic','bge','e5'].some(s => n.includes(s))) return 'embedding';\n  if (ctx >= 100000) return 'long-context';\n  return 'general';\n}\n\n// Missed opportunities: free models not in current config\nconst configured = new Set([\n  'openrouter/openrouter/owl-alpha',\n  'nvidia_nim/nemotron-3-ultra',\n  'gemini/gemini-2.5-pro',\n  'gemini/gemini-2.5-flash',\n  'openai/qwen3.5-plus',\n  'groq/llama-3.3-70b-versatile',\n  'groq/llama-3.1-8b-instant',\n  'openrouter/google/gemini-2.5-flash:free',\n  'ollama/deepseek-r1:8b',\n  'ollama/dolphin3',\n  'ollama/nomic-embed-text',\n]);\n\nconst missed = freeModels\n  .filter(m => !configured.has(m.model_id))\n  .sort((a, b) => b.context_length - a.context_length);\n\nreturn [{\n  json: {\n    generated_at: new Date().toISOString(),\n    total_models: allModels.length,\n    free_models: freeModels.length,\n    missed_opportunities: missed.length,\n    provider_stats: providerStats,\n    missed_top_20: missed.slice(0, 20),\n    free_by_tier: {\n      'T1-ULTRA': freeModels.filter(m => m.tier === 'T1-ULTRA').map(m => m.model_id),\n      'T3-FREE': freeModels.filter(m => m.tier === 'T3-FREE').map(m => m.model_id),\n    }\n  }\n}];"
+      },
+      "id": "aggregate-models",
+      "name": "Aggregate & Classify Models",
+      "type": "n8n-nodes-base.code",
+      "position": [700, 350],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Markdown report\nconst data = $input.first().json;\nconst now = new Date().toISOString().slice(0, 10);\n\nlet md = `# Model Intelligence Report - ${now}\\n\\n`;\nmd += `**Generated:** ${data.generated_at}\\n`;\nmd += `**Total Models:** ${data.total_models}\\n`;\nmd += `**Free Models:** ${data.free_models}\\n`;\nmd += `**Missed Opportunities:** ${data.missed_opportunities}\\n\\n`;\n\nmd += `## Provider Stats\\n\\n`;\nmd += `| Provider | Total | Free |\\n|----------|-------|------|\\n`;\nfor (const [prov, stats] of Object.entries(data.provider_stats)) {\n  md += `| ${prov} | ${stats.total} | ${stats.free} |\\n`;\n}\n\nmd += `\\n## Top Missed Free Models (not in config.yml)\\n\\n`;\nmd += `| Model | Context | Tier | Role |\\n|-------|---------|------|------|\\n`;\nfor (const m of data.missed_top_20) {\n  const ctx = m.context_length ? m.context_length.toLocaleString() : '?';\n  md += `| \\`${m.model_id}\\` | ${ctx} | ${m.tier} | ${m.role} |\\n`;\n}\n\nreturn [{ json: { report: md, filename: `model_intelligence_${now}.md` } }];"
+      },
+      "id": "generate-report",
+      "name": "Generate Markdown Report",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/mnt/d/docker/compose/ai/litellm/config/intelligence_reports/{{$json.filename}}",
+        "data": "={{$json.report}}"
+      },
+      "id": "save-report",
+      "name": "Save Report to Disk",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "position": [1100, 250],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate alert if significant missed opportunities found\nconst data = $input.first().json;\nconst missed = data.missed_top_20 || [];\n\nif (missed.length > 0) {\n  const topFree = missed.slice(0, 5).map(m => \n    `• \\`${m.model_id}\\` (ctx=${m.context_length?.toLocaleString() || '?'}, ${m.role})`\n  ).join('\\n');\n  \n  return [{\n    json: {\n      message: `🧠 Model Intelligence Alert\\n\\nFound ${data.missed_opportunities} free models not in your LiteLLM config.\\n\\nTop picks:\\n${topFree}\\n\\nSee full report in: /mnt/d/docker/compose/ai/litellm/config/intelligence_reports/`,\n      hasAlert: true\n    }\n  }];\n}\n\nreturn [{ json: { message: '✅ No new free models found. All known free models are already configured.', hasAlert: false } }];"
+      },
+      "id": "check-alerts",
+      "name": "Check for Alerts",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 450],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "channel": "🤖-morpheus",
+        "text": "={{$json.message}}"
+      },
+      "id": "notify-telegram",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1100, 400],
+      "typeVersion": 1.2,
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      },
+      "id": "wait-1",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "position": [600, 350],
+      "typeVersion": 1.1,
+      "webhookId": "wait-aggregator"
+    }
+  ],
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          { "node": "Fetch OpenRouter Models", "type": "main", "index": 0 },
+          { "node": "Fetch Gemini Models", "type": "main", "index": 0 },
+          { "node": "Fetch Groq Models", "type": "main", "index": 0 },
+          { "node": "Fetch Novita Models", "type": "main", "index": 0 },
+          { "node": "Fetch Nvidia NIM Models", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch OpenRouter Models": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Fetch Gemini Models": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Fetch Groq Models": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Fetch Novita Models": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Fetch Nvidia NIM Models": {
+      "main": [[{ "node": "Wait", "type": "main", "index": 0 }]]
+    },
+    "Wait": {
+      "main": [[{ "node": "Aggregate & Classify Models", "type": "main", "index": 0 }]]
+    },
+    "Aggregate & Classify Models": {
+      "main": [[{ "node": "Generate Markdown Report", "type": "main", "index": 0 }]]
+    },
+    "Generate Markdown Report": {
+      "main": [[
+        { "node": "Save Report to Disk", "type": "main", "index": 0 },
+        { "node": "Check for Alerts", "type": "main", "index": 0 }
+      ]]
+    },
+    "Check for Alerts": {
+      "main": [[{ "node": "Send Telegram Alert", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "model-intelligence" },
+    { "name": "daily" },
+    { "name": "litellm" }
+  ]
+}

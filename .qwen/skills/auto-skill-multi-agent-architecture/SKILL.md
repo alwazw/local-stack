@@ -65,14 +65,101 @@ Hermes already installs `hindsight-client>=0.4.22` on startup. To enable:
 - Provider: `hindsight` with SQLite or vector store backend
 
 ### LLM Provider Configuration
-Configure Hermes to use local Ollama via LiteLLM:
+
+Hermes uses a **provider enum** — the provider name must match exactly what `hermes auth list` shows.
+
+#### CRITICAL: Provider Name is `openai-api`, NOT `openai`
+
+When using LiteLLM as an OpenAI-compatible proxy, set `model.provider` to `openai-api`:
+
 ```yaml
-# In ~/.hermes/config.yaml
+# ~/.hermes/config.yaml
 model:
-  default: ollama/llama3.1:8b
-  provider: auto
-  base_url: http://litellm:4000
+  default: openai/morpheus-main-model
+  provider: openai-api    # NOT "openai" — that's a built-in provider for chat.openai.com
 ```
+
+Setting `provider: openai` causes the gateway to fail with:
+```
+Unknown provider 'openai'. Check 'hermes model' for available providers
+```
+
+**Available provider names** (from `hermes auth list`):
+- `openai-api` — Any OpenAI-compatible API (LiteLLM, local endpoints)
+- `openrouter` — OpenRouter direct
+- `nvidia` — NVIDIA NIM
+- `anthropic` — Anthropic direct
+- `google` — Google AI Studio / Gemini
+
+#### Environment Variables (`~/.hermes/.env`)
+
+```bash
+# LiteLLM Gateway (primary)
+OPENAI_API_KEY=sk-your-litellm-master-key
+OPENAI_BASE_URL=http://litellm:4000/v1
+
+# OpenRouter (fallback, direct)
+OPENROUTER_API_KEY=sk-or-v1-...
+
+# Nvidia NIM (fallback, direct)
+NVIDIA_API_KEY=nvapi-...
+
+# Telegram bot
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+```
+
+#### Model Naming Convention
+
+Use `openai/<pool-name>` so Hermes treats it as OpenAI-compatible:
+- `openai/morpheus-main-model` — high-intelligence reasoning
+- `openai/morpheus-utility-model` — fast utility/completions
+- `openai/morpheus-embedding-model` — text embeddings
+
+### Hermes Gateway (Telegram + API Server)
+
+The gateway runs messaging platforms (Telegram, API server) and connects to LLM providers.
+
+#### Gateway State
+
+Check status: `docker exec hermes-agent cat /home/hermes/.hermes/gateway_state.json`
+
+```json
+{
+  "gateway_state": "running",
+  "platforms": {
+    "api_server": {"state": "connected"},
+    "telegram": {"state": "connected"}
+  }
+}
+```
+
+#### Telegram Setup
+
+1. Create bot via `@BotFather` on Telegram → get token
+2. Set in config: `docker exec hermes-agent hermes config set telegram.token '<token>'`
+3. Add to `.env`: `TELEGRAM_BOT_TOKEN=<token>`
+4. Restart: `docker exec hermes-agent hermes gateway restart`
+
+**Transient DNS failures:** The first connection attempt after restart may time out with `[Errno -3] Temporary failure in name resolution` for `api.telegram.org`. The gateway's built-in reconnect logic (8 attempts, 60s/120s backoff) handles this automatically. No intervention needed.
+
+#### Diagnostic Commands
+
+```bash
+docker exec hermes-agent hermes doctor          # Full system diagnostics
+docker exec hermes-agent hermes auth list       # Credential status per provider
+docker exec hermes-agent hermes gateway status  # Gateway running state
+docker exec hermes-agent hermes mcp list        # Connected MCP servers
+docker exec hermes-agent hermes gateway restart # Force gateway reconnect
+```
+
+#### MCP Server Registration
+
+Add MCPO bridge as an MCP server:
+```bash
+docker exec hermes-agent hermes mcp add mcpo --url http://mcpo:8000/sse
+```
+
+Note: MCPO exposes MCP servers via SSE transport at `/sse`, not `/mcp`.
 
 ### PM System Prompt (SOUL.md)
 Create `~/.hermes/SOUL.md` with PM instructions:

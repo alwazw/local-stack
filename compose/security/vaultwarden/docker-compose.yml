@@ -47,7 +47,3 @@ networks:
     external: true
   security:
     external: true
-
-secrets:
-  vw_admin_token:
-    external: true

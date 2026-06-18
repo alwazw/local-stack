@@ -47,9 +47,3 @@ networks:
     external: true
   database:
     external: true
-
-secrets:
-  postgres_password:
-    external: true
-  guac_admin_pass:
-    external: true

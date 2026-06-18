@@ -19,7 +19,6 @@ include:
   - compose/ai/mcpo/docker-compose.yml
   - compose/ai/ollama/docker-compose.yml
   - compose/ai/openwebui/docker-compose.yml
-  - compose/ai/hermes-agent/docker-compose.yml
   - compose/ai/hermes/docker-compose.yml
   - compose/ai/omniroute/docker-compose.yml
   - compose/ai/qdrant/docker-compose.yml
@@ -55,6 +54,8 @@ include:
   # Productivity
   - compose/productivity/guacd/docker-compose.yml
   - compose/productivity/guacamole/docker-compose.yml
+  - compose/productivity/affine/docker-compose.yml
+  - compose/productivity/plane/docker-compose.yml
 
 # =====================
 # Secrets — ALL secrets mounted as files, NEVER in .env or environment variables
@@ -104,6 +105,42 @@ secrets:
   redis_password:
     file: ./secrets/redis_password.txt
 
+  # Productivity service secrets
+  affine_database_url:
+    file: ./secrets/affine_database_url.txt
+  plane_database_url:
+    file: ./secrets/plane_database_url.txt
+  plane_redis_url:
+    file: ./secrets/plane_redis_url.txt
+  plane_secret_key:
+    file: ./secrets/plane_secret_key.txt
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
   # SSH deploy key
   ssh_deploy_key:
     file: ./secrets/ssh_deploy_key
+
+  # External LLM API Keys (for LiteLLM gateway)
+  openrouter_key_1:
+    file: ./secrets/external_llm_keys/openrouter_key_1.txt
+  openrouter_key_2:
+    file: ./secrets/external_llm_keys/openrouter_key_2.txt
+  openrouter_key_3:
+    file: ./secrets/external_llm_keys/openrouter_key_3.txt
+  nvidia_nim_key_1:
+    file: ./secrets/external_llm_keys/nvidia_nim_key_1.txt
+  gemini_key_1:
+    file: ./secrets/external_llm_keys/gemini_key_1.txt
+  gemini_key_2:
+    file: ./secrets/external_llm_keys/gemini_key_2.txt
+  gemini_key_3:
+    file: ./secrets/external_llm_keys/gemini_key_3.txt
+  grok_key_1:
+    file: ./secrets/external_llm_keys/grok_key_1.txt
+  alibaba_key_1:
+    file: ./secrets/external_llm_keys/alibaba_key_1.txt
+  alibaba_key_2:
+    file: ./secrets/external_llm_keys/alibaba_key_2.txt
+  novita_key_1:
+    file: ./secrets/external_llm_keys/novita_key_1.txt

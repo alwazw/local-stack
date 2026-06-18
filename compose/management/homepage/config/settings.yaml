@@ -1,7 +1,15 @@
----
-# For configuration options and examples, please see:
+# Homepage Configuration
 # https://gethomepage.dev/configs/settings/
 
+title: Morpheus Stack
+theme: dark
+color: slate
+
+# Provider API keys (if needed)
 providers:
-  openweathermap: openweathermapapikey
-  weatherapi: weatherapiapikey
+  # openweathermap: your-api-key
+  # weatherapi: your-api-key
+
+# Custom CSS/JS (optional)
+# customCSS: /custom.css
+# customJS: /custom.js

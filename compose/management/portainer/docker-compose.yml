@@ -10,7 +10,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - portainer_data:/data
     ports:
-      - "0.0.0.0:8000:8000"
       - "127.0.0.1:${PORT_PORTAINER:-9443}:9443"
     networks:
       - proxy
@@ -29,7 +28,11 @@ services:
 networks:
   proxy:
     external: true
-
+  ai-ml:
+    external: true
+  database:
+    external: true
+    
 volumes:
   portainer_data:
     external: true

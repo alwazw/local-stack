@@ -57,9 +57,3 @@ networks:
 volumes:
   n8n_data:
     external: true
-
-secrets:
-  n8n_key:
-    external: true
-  postgres_password:
-    external: true

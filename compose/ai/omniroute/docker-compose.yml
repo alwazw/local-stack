@@ -54,7 +54,3 @@ networks:
 volumes:
   omniroute_data:
     external: true
-
-secrets:
-  redis_password:
-    external: true
