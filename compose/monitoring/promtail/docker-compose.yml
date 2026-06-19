@@ -14,7 +14,8 @@ services:
     networks:
       - monitoring
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
 
 networks:
   monitoring:

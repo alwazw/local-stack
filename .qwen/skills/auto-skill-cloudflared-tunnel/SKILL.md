@@ -59,7 +59,64 @@ services:
 2. `cloudflared` (busybox) reads the token from Docker secret and execs the binary
 3. busybox provides `/bin/sh` for the entrypoint command
 
-### Option 2: Native `--token-file` Flag (if image supports it)
+### Option 2: Self-Contained Alpine Container (PREFERRED — no sidecar needed)
+
+Use `alpine:latest` with a self-contained entrypoint that downloads cloudflared on first run, caches it in a volume, and runs the tunnel:
+
+```yaml
+services:
+  cloudflared:
+    image: alpine:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    profiles: [network]
+    entrypoint: ["/bin/sh", "/entrypoint-wrapper.sh"]
+    environment:
+      - CLOUDFLARED_VERSION=latest
+    volumes:
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - cloudflared_bin:/data
+    networks:
+      - proxy
+    secrets:
+      - cf_tunnel_token
+    depends_on:
+      traefik:
+        condition: service_healthy
+
+volumes:
+  cloudflared_bin:
+```
+
+**entrypoint-wrapper.sh:**
+```bash
+#!/bin/sh
+set -e
+CLOUDFLARED_BIN="/data/cloudflared"
+
+# Download cloudflared if not present (cached in volume)
+if [ ! -f "$CLOUDFLARED_BIN" ] || [ ! -x "$CLOUDFLARED_BIN" ]; then
+    echo "[entrypoint] Downloading cloudflared binary..." >&2
+    apk add --no-cache curl >/dev/null 2>&1 || true
+    curl -fSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+      -o "$CLOUDFLARED_BIN"
+    chmod +x "$CLOUDFLARED_BIN"
+fi
+
+# Read token from secret
+TUNNEL_TOKEN=$(cat /run/secrets/cf_tunnel_token | tr -d '\n\r')
+
+# Run tunnel (--protocol http2 for WSL2, --no-autoupdate since binary is managed)
+exec "$CLOUDFLARED_BIN" tunnel --no-autoupdate --protocol http2 run --token "$TUNNEL_TOKEN"
+```
+
+**Advantages over Option 1:**
+- Single container — no installer sidecar trailing in `docker ps`
+- Binary cached in volume — only downloads on first run or volume wipe
+- Alpine has `curl` and `apk` — no need to `apk add curl` separately
+- No `depends_on: service_completed_successfully` chain
+
+### Option 3: Native `--token-file` Flag (if image supports it)
 
 ```yaml
 cloudflared:
@@ -168,28 +225,17 @@ echo "Tunnel connections: $CONNECTIONS (QUIC: $QUIC_CONN, HTTP/2: $HTTP2_CONN)"
 
 **QUIC failure on WSL2:** The QUIC precheck often fails on WSL2/Docker Desktop even with correct iptables rules (packets show as matched in `sudo iptables -L -v`). This is likely Windows Firewall or WSL2 virtual switch blocking outbound UDP at a layer below iptables. **The tunnel still works via HTTP/2 fallback** — it's just slower.
 
-## Cleanup: Removing the Installer
+## Validation: Tunnel Connection Check
 
-The `cloudflared-installer` container is a one-shot — it downloads the binary and exits. Clean it up after validating tunnel connections:
+After starting cloudflared, validate tunnel connections:
 
 ```bash
-bash scripts/cleanup_cloudflared_installer.sh
+docker compose logs cloudflared --tail 50 | grep "Registered tunnel connection"
 ```
 
-**The script validates:**
-1. `cloudflared-installer` is in `exited` state
-2. Counts "Registered tunnel connection" log entries (QUIC vs HTTP/2)
-3. Checks for "degraded transport" in logs
-4. Reports QUIC/HTTP/2 status
-5. If ≥ 1 connection found, removes the installer container
-6. If no connections, aborts (tunnel not ready yet)
-
-**Full validation script (standalone):**
+**Full validation script:**
 ```bash
 #!/bin/sh
-# scripts/cleanup_cloudflared_installer.sh
-echo "=== Cloudflared Validation ==="
-STATUS=$(docker inspect cloudflared-installer --format '{{.State.Status}}' 2>/dev/null || echo "none")
 CONNECTIONS=$(docker compose logs cloudflared --tail 100 2>/dev/null | grep -c "Registered tunnel connection" || true)
 QUIC_CONN=$(docker compose logs cloudflared --tail 100 2>/dev/null | grep "Registered tunnel connection" | grep -c "protocol=quic" || true)
 HTTP2_CONN=$(docker compose logs cloudflared --tail 100 2>/dev/null | grep "Registered tunnel connection" | grep -c "protocol=http2" || true)
@@ -197,11 +243,20 @@ DEGRADED=$(docker compose logs cloudflared --tail 50 2>/dev/null | grep -c "degr
 
 echo "Tunnel connections: $CONNECTIONS (QUIC: $QUIC_CONN, HTTP/2: $HTTP2_CONN)"
 [ "$DEGRADED" -gt 0 ] 2>/dev/null && echo "⚠ Running in DEGRADED mode (HTTP/2 fallback — QUIC UDP 7844 blocked)"
-
-if [ "$CONNECTIONS" -ge 1 ] 2>/dev/null && [ "$STATUS" = "exited" ]; then
-    docker rm cloudflared-installer 2>/dev/null && echo "✅ Container removed"
-fi
 ```
+
+## Init Container Cleanup (Legacy — Option 1 only)
+
+If using the old busybox sidecar + installer pattern (Option 1), the `cloudflared-installer` container is a one-shot that exits after downloading the binary. Clean it up after validating tunnel connections:
+
+```bash
+# Check installer exited and tunnel is connected
+STATUS=$(docker inspect cloudflared-installer --format '{{.State.Status}}' 2>/dev/null || echo "none")
+CONNECTIONS=$(docker compose logs cloudflared --tail 100 2>/dev/null | grep -c "Registered tunnel connection" || true)
+[ "$CONNECTIONS" -ge 1 ] && [ "$STATUS" = "exited" ] && docker rm cloudflared-installer
+```
+
+**Better approach:** Migrate to Option 2 (self-contained alpine) to eliminate the installer entirely. See the "Init Container Absorption" pattern in the `init-container-absorption` skill.
 
 ## Token Management
 

@@ -39,6 +39,38 @@ Docker Compose `${VAR}` substitution uses the `.env` file from the directory whe
 ### External `depends_on`
 You cannot `depends_on` a service defined in another compose file (e.g., `depends_on: postgres` when postgres is in a different compose project). **Fix**: Remove `depends_on` and rely on retry logic, or use a single compose file.
 
+### Missing `depends_on` causes startup races (2026-06-19 finding)
+Services that connect to databases but lack `depends_on` with `condition: service_healthy` will fail on every cold start. The service starts immediately, tries to connect to a database that hasn't finished initializing, and enters a restart loop until the DB is ready.
+
+**Known offenders (fixed 2026-06-19):**
+- `authentik-server` — was missing `depends_on` entirely for postgres and redis (the worker had it, but the server didn't)
+- `loki` — had no healthcheck defined, so `promtail`'s `depends_on: loki` only waited for `service_started`, not `service_healthy`
+
+**Fix pattern:**
+```yaml
+# Server side — ensure depends_on with health condition
+depends_on:
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+# Dependency side — ensure healthcheck exists
+healthcheck:
+  test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+
+# Consumer side — use condition, not simple list
+depends_on:
+  loki:
+    condition: service_healthy   # NOT: depends_on: [loki]
+```
+
+**Detection:** If a service shows `FATAL: the database system is starting up` or `Connection refused` in logs during cold start but eventually recovers, it's a missing `depends_on` race condition.
+
 ### Docker API version negotiation
 Older Traefik versions (v3.1-v3.3) fail to negotiate with Docker 29+ with error: `client version 1.24 is too old. Minimum supported API version is 1.40`. **Fix**: Use `traefik:latest` (v3.4+) which has updated Docker client libraries. `DOCKER_API_VERSION` env var does NOT fix this.
 
@@ -784,3 +816,171 @@ docker exec <container-A> python3 -c "import socket; s=socket.socket(); s.settim
 
 ### Why reconnecting containers doesn't help
 `docker network disconnect` + `docker network connect` only reassigns the container's veth pair to the bridge. If the bridge itself has no iptables FORWARD rules, traffic still gets dropped at the `DOCKER-FORWARD` chain.
+
+## 24. Entrypoint chaining — wrapping an image's built-in entrypoint
+
+When you need to inject environment variables (e.g., from Docker secrets) BEFORE an image's original entrypoint runs, you must chain to the original entrypoint — not replace it. Simply doing `exec "$@"` skips the image's init logic.
+
+### Diagnosis
+
+Find the image's original entrypoint and command:
+```bash
+docker inspect <image> --format '{{json .Config.Entrypoint}} {{json .Config.Cmd}}'
+# Example output: ["/usr/local/bin/docker-entrypoint.sh"] ["node","./dist/main.js"]
+```
+
+### Pattern: Wrapper that chains to original entrypoint
+
+```sh
+#!/bin/sh
+# entrypoint-wrapper.sh — reads secrets, then chains to original entrypoint
+set -e
+
+# Read secrets from Docker secret files
+if [ -f /run/secrets/database_url ]; then
+    export DATABASE_URL="$(cat /run/secrets/database_url | tr -d '\n\r')"
+fi
+
+if [ -f /run/secrets/redis_password ]; then
+    export REDIS_PASSWORD="$(cat /run/secrets/redis_password | tr -d '\n\r')"
+fi
+
+echo "[wrapper] Secrets loaded, chaining to original entrypoint" >&2
+
+# CRITICAL: exec the ORIGINAL entrypoint, not "$@"
+# "$@" only runs the command args, skipping the image's init logic
+exec /usr/local/bin/docker-entrypoint.sh "$@"
+```
+
+### Common mistakes
+
+| Mistake | Result | Fix |
+|---------|--------|-----|
+| `exec "$@"` | Skips image init (e.g., Prisma migrations, user setup) | Chain to original: `exec /usr/local/bin/docker-entrypoint.sh "$@"` |
+| `exec docker-entrypoint.sh "$@"` (no full path) | "command not found" | Use full path from `docker inspect` |
+| Not passing `"$@"` | Original command args lost, container exits immediately | Always pass `"$@"` to forward CMD args |
+| Setting `_FILE` env vars instead of actual values | App reads file path as the value | Read file content, export as regular env var |
+
+### Real-world examples
+
+**Affine (Node.js app):**
+- Original: `docker-entrypoint.sh` → runs Prisma migrations → starts `node ./dist/main.js`
+- Wrapper reads `DATABASE_URL` from secret → `exec /usr/local/bin/docker-entrypoint.sh "$@"`
+
+**Plane (Python Django app):**
+- Original: `./bin/docker-entrypoint-api.sh` → runs migrations → starts gunicorn
+- Wrapper reads `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY` from secrets → `exec "$@"` (Plane's entrypoint is already the CMD, so `exec "$@"` works here)
+
+### When to use `exec "$@"` vs `exec /original/entrypoint.sh "$@"`
+
+- **Use `exec "$@"`** when the image's ENTRYPOINT is already the full init script and CMD just passes through args
+- **Use `exec /original/entrypoint.sh "$@"`** when the image has a separate ENTRYPOINT binary and you need to invoke it explicitly
+
+Check with `docker inspect` — if `Entrypoint` is a shell script path, chain to it. If `Entrypoint` is null or a simple binary, `exec "$@"` may work.
+
+## 25. Services that exit immediately without explicit command
+
+Some Docker images require an explicit `command:` in compose. Without it, the container starts and exits immediately with code 0.
+
+### Symptoms
+- Container shows `Exited (0)` seconds after start
+- `docker logs` shows the wrapper running but no application output
+- The image works fine in other deployments
+
+### Root cause
+The image's default CMD may be empty or the entrypoint expects specific args. Without `command:`, Docker runs just the entrypoint with no args.
+
+### Fix
+Add explicit command matching what the image expects:
+```yaml
+services:
+  affine:
+    image: ghcr.io/toeverything/affine:stable
+    entrypoint: ["/entrypoint-wrapper.sh"]
+    command: ["node", "./dist/main.js"]  # Without this, exits immediately
+```
+
+### Diagnosis
+```bash
+# Check what the image expects:
+docker inspect <image> --format 'ENTRYPOINT: {{json .Config.Entrypoint}} CMD: {{json .Config.Cmd}}'
+
+# If CMD is empty/null, you must provide command:
+docker inspect <image> --format '{{json .Config.Cmd}}'
+# Output: null → need explicit command
+```
+
+## 26. Productivity service patterns (Affine, Plane)
+
+### Affine (Notion alternative)
+- **Correct image:** `ghcr.io/toeverything/affine:stable` (NOT `affine-graphql`)
+- **Requires migration service** that runs `node ./scripts/self-host-predeploy.js` before the main app
+- **Migration pattern:**
+  ```yaml
+  affine_migration:
+    image: ghcr.io/toeverything/affine:stable
+    command: ['node', './scripts/self-host-predeploy.js']
+    depends_on:
+      postgres: { condition: service_healthy }
+  
+  affine:
+    depends_on:
+      affine_migration: { condition: service_completed_successfully }
+  ```
+- **Database:** PostgreSQL with connection string from secret
+- **Redis:** hostname only (`REDIS_SERVER_HOST: redis`), password from secret file
+- **Volume:** `affine_data:/root/.affine` for persistent storage
+
+### Plane (Jira alternative)
+- **Architecture:** 4 services — `plane-web` (frontend), `plane-api` (backend), `plane-worker` (async), `plane-proxy` (Caddy)
+- **plane-proxy often fails** with Caddyfile syntax errors — use Traefik routing instead:
+  ```yaml
+  # Route API paths to plane-api, everything else to plane-web
+  plane-api:
+    labels:
+      - "traefik.http.routers.plane-api.rule=Host(`plane.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`))"
+      - "traefik.http.routers.plane-api.priority=100"
+  
+  plane-web:
+    labels:
+      - "traefik.http.routers.plane-web.rule=Host(`plane.${DOMAIN}`)"
+  ```
+- **Secrets needed:** `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY` (Django)
+- **Generate secret key:** `openssl rand -base64 48 > secrets/plane_secret_key.txt`
+- **Worker command:** `["python", "manage.py", "worker"]`
+
+## 27. Compose stack cleanup audit procedure
+
+When a Docker Compose stack accumulates services over time, garbage accumulates. Run this audit:
+
+### Step 1: Find empty directories
+```bash
+find compose/ -type d -empty
+```
+
+### Step 2: Find compose files not included in root
+```bash
+# All compose files in subdirectories:
+find compose/ -name "docker-compose.yml" | sort
+
+# Included in root:
+grep "compose/" docker-compose.yml | grep -oP 'compose/\S+'
+```
+
+### Step 3: Find orphaned placeholder files
+```bash
+find compose/ -name "*.yaml" -o -name "*.yml" | grep -v docker-compose | grep -v config
+```
+
+### Step 4: Check for port conflicts
+```bash
+grep -rn "ports:" compose/ --include="docker-compose.yml" | grep -oP '\d+:\d+' | sort | uniq -d
+```
+
+### Step 5: Check for services with compose files but not in root includes
+```bash
+for f in $(find compose/ -name "docker-compose.yml"); do
+  dir=$(dirname "$f" | sed 's|^\./||')
+  grep -q "$dir" docker-compose.yml || echo "NOT INCLUDED: $dir"
+done
+```

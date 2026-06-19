@@ -13,6 +13,11 @@ services:
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${PORT_AUTHENTIK}:9000"
     volumes:

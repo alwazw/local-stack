@@ -391,6 +391,122 @@ done
 
 Store at `scripts/fix-docker-forwarding.sh` and run with `sudo bash` after every Docker Desktop restart.
 
+## Universal Fix: `physdev-is-bridged` (Single Rule for ALL Bridges)
+
+**Discovered 2026-06-19**: Instead of adding per-bridge iptables rules, a single `physdev` match rule fixes ALL custom bridges at once. This is the root cause and universal fix for the systemic WSL2 Docker networking failure.
+
+### Root Cause: `bridge-nf-call-iptables`
+
+WSL2 kernel sets `net.bridge.bridge-nf-call-iptables = 1`, which routes ALL Layer 2 bridge traffic (including inter-container on the same bridge) through the iptables FORWARD chain. Docker Desktop's nftables/iptables backend creates ACCEPT rules **only for `docker0`** (the default bridge). Custom bridges get **no rules**. Combined with FORWARD chain policy DROP, this silently kills ALL inter-container and outbound traffic on every custom network.
+
+### Why It Recurs
+
+Rules are lost on every:
+- WSL2 restart (`wsl --shutdown`)
+- Windows sleep/hibernate
+- Docker Desktop update
+- Docker Desktop service restart
+
+### Diagnostic: ARP Works, Packets Don't
+
+A key diagnostic clue: containers CAN see each other's MAC addresses in their ARP table (`cat /proc/net/arp` shows resolved entries), but TCP connections and pings still time out. This means L2 discovery works (bridge forwards broadcast ARP) but L3 forwarding is blocked (iptables FORWARD DROP catches the unicast packets).
+
+```bash
+# This shows MAC resolved (ARP OK):
+docker exec n8n cat /proc/net/arp
+# 172.20.0.12  ... 1a:ab:8c:35:6e:5d  *  eth0
+
+# But this times out:
+docker exec n8n node -e "require('net').Socket().connect(5432,'postgres',()=>console.log('OK'))"
+# TIMEOUT
+```
+
+### The Three Universal Rules
+
+```bash
+# 1. Allow same-bridge traffic (inter-container on ANY custom bridge)
+sudo iptables -I FORWARD 1 -m physdev --physdev-is-bridged -j ACCEPT
+
+# 2. Allow return traffic for established connections
+sudo iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# 3. Allow outbound container traffic to internet
+OUTBOUND_IFACE=$(ip route show default | awk '/default/ {print $5}' | head -1)
+sudo iptables -I FORWARD 3 -o "$OUTBOUND_IFACE" -j ACCEPT
+```
+
+**Rule 1** is the magic bullet: `--physdev-is-bridged` matches any packet where ingress and egress are on the same Linux bridge — i.e., container-to-container on the same Docker network. This replaces the need for per-bridge `-i br-XXX -o br-XXX` rules.
+
+### Idempotent Fix Script
+
+Store at `scripts/fix-docker-networking.sh`. Checks for existing rules before adding:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Only needed if bridge-nf-call-iptables is ON
+[[ $(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null) != "1" ]] && exit 0
+
+# Only needed if FORWARD policy is DROP
+FORWARD_POLICY=$(iptables -L FORWARD -n 2>/dev/null | head -1 | grep -oP 'policy \K\w+')
+[[ "$FORWARD_POLICY" != "DROP" ]] && exit 0
+
+iptables -C FORWARD -m physdev --physdev-is-bridged -j ACCEPT 2>/dev/null || \
+  iptables -I FORWARD 1 -m physdev --physdev-is-bridged -j ACCEPT
+
+iptables -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+  iptables -I FORWARD 2 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+OUTBOUND=$(ip route show default | awk '/default/{print $5}' | head -1)
+iptables -C FORWARD -o "$OUTBOUND" -j ACCEPT 2>/dev/null || \
+  iptables -I FORWARD 3 -o "$OUTBOUND" -j ACCEPT
+
+# Add missing MASQUERADE for custom Docker networks
+docker network ls --format '{{.Name}}' | while read -r net; do
+  subnet=$(docker network inspect "$net" --format '{{(index .IPAM.Config 0).Subnet}}' 2>/dev/null || true)
+  bridge=$(docker network inspect "$net" --format '{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null || true)
+  if [[ -n "$subnet" && -n "$bridge" ]]; then
+    iptables -t nat -C POSTROUTING -s "$subnet" ! -o "$bridge" -j MASQUERADE 2>/dev/null || \
+      iptables -t nat -A POSTROUTING -s "$subnet" ! -o "$bridge" -j MASQUERADE
+  fi
+done
+```
+
+### Quick Diagnostic Command
+
+```bash
+# Is the universal fix needed?
+cat /proc/sys/net/bridge/bridge-nf-call-iptables  # 1 = yes
+sudo iptables -L FORWARD -n | head -1              # policy DROP = yes
+sudo iptables -C FORWARD -m physdev --physdev-is-bridged -j ACCEPT 2>/dev/null && echo "FIXED" || echo "BROKEN"
+```
+
+## Cloudflared QUIC Fails on WSL2 Docker
+
+### Symptom
+Cloudflared logs show 100% QUIC connection failures: `failed to dial to edge with quic: timeout: no recent network activity`. Even after fixing iptables, QUIC (UDP port 7844) doesn't work through Docker bridge networking on WSL2.
+
+### Root Cause
+WSL2 Docker doesn't properly forward UDP through bridge networking. TCP outbound works (after iptables fix), but UDP/QUIC packets are dropped.
+
+### Fix
+Force HTTP/2 protocol in the cloudflared compose command:
+
+```yaml
+command:
+  - |
+    TOKEN=$$(cat /run/secrets/cf_tunnel_token)
+    exec /usr/local/bin/cloudflared tunnel --no-autoupdate --protocol http2 run --token "$$TOKEN"
+```
+
+**Note:** `docker restart` does NOT re-read the compose file. You must `docker compose up -d cloudflared` to recreate the container with the updated command.
+
+**Expected output after fix:**
+```
+SUMMARY: Environment ready with degraded transport. cloudflared will proceed using 'http2'.
+```
+
 ## Verification After Fix
 
 ```bash
@@ -402,4 +518,7 @@ docker exec <container> wget -qO- --timeout=5 https://pypi.org/simple/ | head -1
 
 # Test all services
 docker compose --profile '*' ps --format '{{.Name}}\t{{.Status}}' | grep -v healthy
+
+# Full stack troubleshooter
+./scripts/stack-troubleshooter.sh --diagnose
 ```

@@ -25,7 +25,7 @@ services:
       NOVITA_API_KEY_1_FILE: /run/secrets/novita_key_1
       DEBUG: 1
     ports:
-      - "127.0.0.1:${PORT_LITELLM}:4000"
+      - "127.0.0.1:${PORT_LITELLM-4000}:4000"
     volumes:
       - ./config:/app/config
       - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
@@ -49,7 +49,7 @@ services:
       - "homepage.group=AI Core"
       - "homepage.name=LiteLLM"
       - "homepage.icon=litellm.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_LITELLM}/health"
+      - "homepage.href=http://${DOMAIN}:${PORT_LITELLM-4000}/health"
       - "homepage.description=LLM Gateway (Routing, Load Balancing, Fallback)"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/routes', timeout=5)"]

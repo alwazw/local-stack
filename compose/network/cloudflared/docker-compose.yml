@@ -2,37 +2,25 @@ version: "3.8"
 
 services:
   cloudflared:
-    image: busybox:1.37
+    image: alpine:latest
     container_name: cloudflared
     restart: unless-stopped
     profiles: [network]
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        TOKEN=$$(cat /run/secrets/cf_tunnel_token)
-        exec /usr/local/bin/cloudflared tunnel --no-autoupdate run --token "$$TOKEN"
+    entrypoint: ["/bin/sh", "/entrypoint-wrapper.sh"]
+    environment:
+      - CLOUDFLARED_VERSION=latest
     volumes:
-      - cloudflared_bin:/usr/local/bin
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - cloudflared_bin:/data
     networks:
       - proxy
     secrets:
       - cf_tunnel_token
-    depends_on:
-      cloudflared-installer:
-        condition: service_completed_successfully
-
-  cloudflared-installer:
-    image: alpine:latest
-    container_name: cloudflared-installer
-    profiles: [network]
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        apk add --no-cache curl && \
-        curl -fSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /data/cloudflared && \
-        chmod +x /data/cloudflared
-    volumes:
-      - cloudflared_bin:/data
+    labels:
+      - "homepage.group=Network"
+      - "homepage.name=Cloudflare Tunnel"
+      - "homepage.icon=cloudflare.png"
+      - "homepage.description=Cloudflare tunnel for external access"
 
 volumes:
   cloudflared_bin:

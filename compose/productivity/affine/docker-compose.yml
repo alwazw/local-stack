@@ -1,31 +1,6 @@
-# Affine — Collaborative knowledge base (Notion alternative)
-# Profile: productivity
-# Network: proxy, database
-# Port: 8083
-services:
-  affine_migration:
-    image: ghcr.io/toeverything/affine:stable
-    container_name: affine-migration
-    profiles: [productivity]
-    entrypoint: ["/entrypoint-wrapper.sh"]
-    command: ['node', './scripts/self-host-predeploy.js']
-    environment:
-      NODE_ENV: production
-      REDIS_SERVER_HOST: redis
-      AFFINE_INDEXER_ENABLED: "false"
-    volumes:
-      - affine_data:/root/.affine
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
-      - ../../../secrets/redis_password.txt:/run/secrets/redis_password:ro
-      - ../../../secrets/affine_database_url.txt:/run/secrets/affine_database_url:ro
-    networks:
-      - database
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+version: "3.8"
 
+services:
   affine:
     image: ghcr.io/toeverything/affine:stable
     container_name: affine
@@ -48,8 +23,10 @@ services:
       - proxy
       - database
     depends_on:
-      affine_migration:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.affine.rule=Host(`affine.${DOMAIN}`)"
@@ -64,3 +41,9 @@ services:
 
 volumes:
   affine_data:
+
+networks:
+  proxy:
+    external: true
+  database:
+    external: true
