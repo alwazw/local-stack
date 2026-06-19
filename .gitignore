@@ -6,7 +6,7 @@
 secrets/*
 !secrets/*.pub
 !secrets/README.md
-*_key.txt
+*_key*.txt
 *_password.txt
 *_token.txt
 *_secret.txt
