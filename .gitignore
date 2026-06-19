@@ -28,6 +28,7 @@ web_modules/
 # ==========================================================
 data/
 compose/*/data/
+compose/*/*/data/
 *.db
 *.sqlite
 
