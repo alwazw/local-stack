@@ -29,7 +29,7 @@ web_modules/
 data/
 compose/*/data/
 compose/*/*/data/
-compose/monitoring/grafana/grafana_data/
+compose/monitoring/grafana/grafana_data/*
 *.db
 *.sqlite
 
