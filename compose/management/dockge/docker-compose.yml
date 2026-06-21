@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   dockge:
@@ -19,6 +19,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dockge.rule=Host(`dockge.${DOMAIN}`)"
       - "traefik.http.routers.dockge.entrypoints=websecure"
+      - "traefik.http.routers.dockge-web.entrypoints=web"
+      - "traefik.http.routers.dockge-web.rule=Host(`dockge.${DOMAIN}`)"
       - "traefik.http.routers.dockge.tls.certresolver=cloudflare"
       - "traefik.http.services.dockge.loadbalancer.server.port=5001"
       - "homepage.group=Management"

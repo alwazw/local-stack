@@ -16,3 +16,10 @@
 [2026-06-16T18:12:50.084Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
 [2026-06-16T18:12:50.089Z] error: Host validation failed for: localhost:3004. Hint: Set the HOMEPAGE_ALLOWED_HOSTS environment variable to allow requests from this host / port.
 [2026-06-18T08:00:28.215Z] info: kubernetes.yaml was copied to the config folder
+[2026-06-19T19:35:17.891Z] info: docker.yaml was copied to the config folder
+[2026-06-19T19:35:17.907Z] info: services.yaml was copied to the config folder
+[2026-06-19T19:35:17.918Z] info: bookmarks.yaml was copied to the config folder
+[2026-06-19T19:35:17.930Z] info: proxmox.yaml was copied to the config folder
+[2026-06-19T19:35:17.999Z] info: widgets.yaml was copied to the config folder
+[2026-06-19T19:35:18.010Z] info: custom.css was copied to the config folder
+[2026-06-19T19:35:18.020Z] info: custom.js was copied to the config folder

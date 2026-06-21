@@ -31,6 +31,7 @@ locals {
     cf_dns_api_token  = "${local.secrets_dir}/cf_dns_api_token.txt"
     cf_api_key        = "${local.secrets_dir}/cf_api_key.txt"
     cf_tunnel_token   = "${local.secrets_dir}/cf_tunnel_token.txt"
+    cf_access_token   = "${local.secrets_dir}/cf_access_token.txt"
     authentik_secret  = "${local.secrets_dir}/authentik_secret.txt"
     hermes_password   = "${local.secrets_dir}/hermes_password.txt"
     github_token      = "${local.secrets_dir}/github_token.txt"
@@ -44,5 +45,11 @@ locals {
     postgres_password = "${local.secrets_dir}/postgres_password.txt"
     redis_password    = "${local.secrets_dir}/redis_password.txt"
     ssh_deploy_key    = "${local.secrets_dir}/ssh_deploy_key"
+
+    # Cloudflare Access OAuth secrets (for Zero Trust identity providers)
+    github_oauth_client_id     = "${local.secrets_dir}/github_oauth_client_id.txt"
+    github_oauth_client_secret = "${local.secrets_dir}/github_oauth_client_secret.txt"
+    google_oauth_client_id     = "${local.secrets_dir}/google_oauth_client_id.txt"
+    google_oauth_client_secret = "${local.secrets_dir}/google_oauth_client_secret.txt"
   }
 }

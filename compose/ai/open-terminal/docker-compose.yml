@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   open-terminal:
@@ -19,6 +19,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.open-terminal.rule=Host(`terminal.${DOMAIN}`)"
       - "traefik.http.routers.open-terminal.entrypoints=websecure"
+      - "traefik.http.routers.open-terminal-web.entrypoints=web"
+      - "traefik.http.routers.open-terminal-web.rule=Host(`terminal.${DOMAIN}`)"
       - "traffik.http.routers.open-terminal.tls.certresolver=cloudflare"
       - "traefik.http.services.open-terminal.loadbalancer.server.port=5000"
       - "homepage.group=AI Core"

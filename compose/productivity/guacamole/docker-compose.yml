@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   guacamole:
@@ -20,7 +20,6 @@ services:
       - guac_admin_pass
     networks:
       - proxy
-      - ai-ml
       - database
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/guacamole"]
@@ -32,6 +31,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.guacamole.rule=Host(`rdp.${DOMAIN}`)"
       - "traefik.http.routers.guacamole.entrypoints=websecure"
+      - "traefik.http.routers.guacamole-web.entrypoints=web"
+      - "traefik.http.routers.guacamole-web.rule=Host(`rdp.${DOMAIN}`)"
       - "traefik.http.routers.guacamole.tls.certresolver=cloudflare"
       - "traefik.http.services.guacamole.loadbalancer.server.port=8080"
       - "homepage.group=Productivity"

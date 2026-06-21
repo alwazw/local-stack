@@ -288,6 +288,129 @@ Internet → Cloudflare Edge → Cloudflare Tunnel → cloudflared container →
 
 **Important:** Cloudflared routes to Traefik's internal address. Configure your Cloudflare DNS records to point to the tunnel, and Traefik handles the rest via its Docker provider auto-discovery.
 
+### Critical: Router Split Pattern for Tunnel Traffic (2026-06-20 Discovery)
+
+When using a Cloudflare Tunnel that terminates TLS externally and sends plain HTTP to Traefik port 80, you **cannot** use `entrypoints=web,websecure` on a router that has `tls.certResolver`. The TLS configuration applies to **both** entrypoints, causing port 80 to expect TLS handshakes and reject plain HTTP with 404.
+
+**Problem architecture (BROKEN):**
+```
+Tunnel → http://traefik:80 (plain HTTP)
+Traefik router has entrypoints=web,websecure + tls.certResolver=cloudflare
+→ Port 80 expects TLS handshake → 404 page not found
+```
+
+**Correct architecture (split routers):**
+```yaml
+services:
+  myservice:
+    labels:
+      # HTTPS router (with TLS) — for direct HTTPS access
+      - "traefik.http.routers.myservice.entrypoints=websecure"
+      - "traefik.http.routers.myservice.rule=Host(`myservice.${DOMAIN}`)"
+      - "traefik.http.routers.myservice.tls.certresolver=cloudflare"
+      - "traefik.http.services.myservice.loadbalancer.server.port=8080"
+      
+      # HTTP router (no TLS) — for tunnel traffic
+      - "traefik.http.routers.myservice-web.entrypoints=web"
+      - "traefik.http.routers.myservice-web.rule=Host(`myservice.${DOMAIN}`)"
+      # No tls.certresolver — plain HTTP
+```
+
+**Why this works:**
+- Tunnel traffic arrives as plain HTTP on port 80 → matches `myservice-web` router (no TLS)
+- Direct HTTPS on port 443 → matches `myservice` router (with TLS)
+- Both routers point to the same service/loadbalancer
+
+**Traefik global config (remove redirect):**
+```yaml
+command:
+  - --entrypoints.web.address=:80
+  - --entrypoints.websecure.address=:443
+  # DO NOT add: --entrypoints.web.http.redirections.entrypoint.to=websecure
+  # This causes a redirect death loop (see below)
+```
+
+### Redirect Death Loop (Tunnel + HTTP→HTTPS redirect)
+
+**Problem:** If Traefik has an HTTP→HTTPS redirect configured globally:
+```
+Tunnel → http://traefik:80 (Host: myservice.example.com)
+Traefik → 301 redirect to https://myservice.example.com/
+cloudflared follows redirect → DNS resolves to Cloudflare edge IP (e.g., 172.64.80.1)
+Container tries to connect to external IP → TIMES OUT (can't reach Cloudflare from inside Docker)
+```
+
+**Fix:** Remove the global redirect. Let tunnel traffic stay HTTP, let direct HTTPS traffic use the websecure entrypoint with its own router.
+
+### Validation Script
+
+Test tunnel routing end-to-end:
+```bash
+# Test HTTP routing (tunnel traffic path)
+for domain in portainer.wazzan.us chat.wazzan.us home.wazzan.us; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: $domain" http://localhost:80)
+  echo "http://$domain → HTTP $code"
+done
+
+# Test HTTPS routing (direct access path)
+for domain in portainer.wazzan.us chat.wazzan.us home.wazzan.us; do
+  code=$(curl -sk -o /dev/null -w "%{http_code}" -H "Host: $domain" https://localhost:443)
+  echo "https://$domain → HTTP $code"
+done
+
+# Test tunnel path (cloudflared → traefik:80)
+docker exec cloudflared sh -c "wget -S --spider --timeout=5 --header='Host: portainer.wazzan.us' http://traefik:80 2>&1" | head -5
+```
+
+**Expected results:**
+- HTTP (port 80): 200 OK (tunnel path)
+- HTTPS (port 443): 200 OK (direct path)
+- Tunnel test: HTTP/1.1 200 OK
+
+### Batch Update Script for Split Routers
+
+When migrating existing services from `entrypoints=web,websecure` to split routers:
+
+```bash
+#!/bin/bash
+# For each compose file with Traefik labels
+find compose/ -name "docker-compose.yml" | while read f; do
+  # Step 1: Revert to websecure-only
+  sed -i 's/entrypoints=web,websecure/entrypoints=websecure/g' "$f"
+  
+  # Step 2: Add companion web router for each websecure router
+  python3 -c "
+import re
+with open('$f', 'r') as fh:
+    lines = fh.readlines()
+new_lines = []
+for i, line in enumerate(lines):
+    new_lines.append(line)
+    m = re.search(r'traefik\.http\.routers\.([^.]+)\.entrypoints=websecure', line)
+    if m:
+        router_name = m.group(1)
+        # Find the rule in nearby lines
+        rule = None
+        for j in range(max(0, i-5), min(len(lines), i+5)):
+            rm = re.search(rf'traefik\.http\.routers\.{re.escape(router_name)}\.rule=(.+)', lines[j])
+            if rm:
+                rule = rm.group(1).strip().strip('\"')
+                break
+        if rule:
+            indent = line[:len(line) - len(line.lstrip())]
+            new_lines.append(f'{indent}- \"traefik.http.routers.{router_name}-web.entrypoints=web\"\n')
+            new_lines.append(f'{indent}- \"traefik.http.routers.{router_name}-web.rule={rule}\"\n')
+with open('$f', 'w') as fh:
+    fh.writelines(new_lines)
+"
+done
+```
+
+Then recreate all services:
+```bash
+env DOMAIN=wazzan.us docker compose --profile ai --profile security --profile monitoring --profile management --profile ci --profile productivity --profile network up -d --force-recreate
+```
+
 ## Common Errors
 
 | Error | Cause | Fix |

@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   openwebui:
@@ -26,7 +26,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.openwebui.rule=Host(`chat.${DOMAIN}`)"
       - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui-web.entrypoints=web"
+      - "traefik.http.routers.openwebui-web.rule=Host(`chat.${DOMAIN}`)"
       - "traefik.http.routers.openwebui.tls.certresolver=cloudflare"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
       - "homepage.group=AI"
       - "homepage.name=OpenWebUI"
       - "homepage.href=https://chat.${DOMAIN}"

@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   litellm:
@@ -25,7 +25,7 @@ services:
       NOVITA_API_KEY_1_FILE: /run/secrets/novita_key_1
       DEBUG: 1
     ports:
-      - "127.0.0.1:${PORT_LITELLM-4000}:4000"
+      - "127.0.0.1:${PORT_LITELLM:-4000}:4000"
     volumes:
       - ./config:/app/config
       - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro

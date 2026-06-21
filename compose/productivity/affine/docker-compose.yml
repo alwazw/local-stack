@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   affine:
@@ -31,6 +31,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.affine.rule=Host(`affine.${DOMAIN}`)"
       - "traefik.http.routers.affine.entrypoints=websecure"
+      - "traefik.http.routers.affine-web.entrypoints=web"
+      - "traefik.http.routers.affine-web.rule=Host(`affine.${DOMAIN}`)"
       - "traefik.http.routers.affine.tls.certresolver=cloudflare"
       - "traefik.http.services.affine.loadbalancer.server.port=3010"
       - "homepage.group=Productivity"

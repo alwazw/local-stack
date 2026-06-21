@@ -10,11 +10,12 @@ services:
     profiles: [productivity]
     networks:
       - proxy
-      - database
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.plane-web.rule=Host(`plane.${DOMAIN}`)"
       - "traefik.http.routers.plane-web.entrypoints=websecure"
+      - "traefik.http.routers.plane-web-web.entrypoints=web"
+      - "traefik.http.routers.plane-web-web.rule=Host(`plane.${DOMAIN}`)"
       - "traefik.http.routers.plane-web.tls.certresolver=cloudflare"
       - "traefik.http.services.plane-web.loadbalancer.server.port=3000"
 
@@ -44,6 +45,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.plane-api.rule=Host(`plane.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/static`))"
       - "traefik.http.routers.plane-api.entrypoints=websecure"
+      - "traefik.http.routers.plane-api-web.entrypoints=web"
+      - "traefik.http.routers.plane-api-web.rule=Host(`plane.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/static`))"
       - "traefik.http.routers.plane-api.tls.certresolver=cloudflare"
       - "traefik.http.services.plane-api.loadbalancer.server.port=8080"
       - "traefik.http.routers.plane-api.priority=100"

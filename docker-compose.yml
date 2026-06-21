@@ -1,12 +1,15 @@
 # AEF3 - Autonomous Engineer Framework v3
-# Root docker-compose.yml - orchestrates all services
+# Root   docker-compose.yml - orchestrates all services
+#        docker compose --profile monitoring up -d
+#
 # Usage: docker compose up -d (from project root)
 #        docker compose down   (tear down all)
+
 #
 # This file contains ONLY include directives, secrets, and networks.
 # Each service is defined in its own compose file under compose/<category>/<service>/docker-compose.yml
 
-version: "3.8"
+# version: "3.8"
 
 include:
   # Network

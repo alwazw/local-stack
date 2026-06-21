@@ -11,8 +11,8 @@ Autonomous Engineer Framework v3 — Modular Docker Compose Stack
 | Root directory | `/mnt/d/docker` |
 | Config | `docker-compose.yml` (orchestrator — uses `include:` to pull in individual service files) |
 | Service definitions | 35 individual `compose/<category>/<service>/docker-compose.yml` files |
-| Included in root | 32 services (via `include:` in root `docker-compose.yml`) |
-| Standalone (not in root) | `woodpecker`, `affine`, `plane`, `authentik` meta-service |
+| Included in root | 34 services (via `include:` in root `docker-compose.yml`) |
+| Standalone (not in root) | `woodpecker`, `affine`, `plane` |
 | Data directories | `compose/<category>/<service>/data`, `compose/<category>/<service>/config` |
 | Named volumes | `hermes_home`, `hermes_agent_src`, `hermes_workspace`, `omniroute_data`, `qdrant_data`, `gitea_data`, `n8n_data`, `grafana_data`, `uptime_kuma_data`, `loki_data`, `portainer_data`, `dockge_data`, `authentik_media`, `guacd_drive`, `guacd_record`, `cloudflared_bin` |
 | Networks (all external) | `proxy`, `database`, `ai-ml`, `agent-communication`, `security`, `monitoring` |
@@ -33,7 +33,7 @@ Each service has its own `docker-compose.yml` under `compose/<category>/<service
 | **management** | `management/portainer/`, `management/dockge/`, `management/homepage/` |
 | **ci** | `ci/gitea/`, `ci/n8n/` |
 | **productivity** | `productivity/guacd/`, `productivity/guacamole/` |
-| **standalone** (not in root `include:`) | `ci/woodpecker/`, `productivity/affine/`, `productivity/plane/`, `security/authentik/` (meta) |
+| **standalone** (not in root `include:`) | `ci/woodpecker/`, `productivity/affine/`, `productivity/plane/` |
 
 ### Architecture pattern
 
@@ -237,7 +237,6 @@ docker compose -f compose/data/redis/docker-compose.yml up -d
 docker compose -f compose/ci/woodpecker/docker-compose.yml up -d
 docker compose -f compose/productivity/affine/docker-compose.yml up -d
 docker compose -f compose/productivity/plane/docker-compose.yml up -d
-docker compose -f compose/security/authentik/docker-compose.yml up -d
 ```
 
 ### Startup order
@@ -993,7 +992,6 @@ docker compose down -v
 docker compose -f compose/ci/woodpecker/docker-compose.yml down -v 2>/dev/null
 docker compose -f compose/productivity/affine/docker-compose.yml down -v 2>/dev/null
 docker compose -f compose/productivity/plane/docker-compose.yml down -v 2>/dev/null
-docker compose -f compose/security/authentik/docker-compose.yml down -v 2>/dev/null
 
 # 3. Remove dangling images
 docker image prune -af
@@ -1019,7 +1017,6 @@ docker compose up -d
 docker compose -f compose/ci/woodpecker/docker-compose.yml up -d 2>/dev/null
 docker compose -f compose/productivity/affine/docker-compose.yml up -d 2>/dev/null
 docker compose -f compose/productivity/plane/docker-compose.yml up -d 2>/dev/null
-docker compose -f compose/security/authentik/docker-compose.yml up -d 2>/dev/null
 
 # 10. Wait for health checks
 sleep 120

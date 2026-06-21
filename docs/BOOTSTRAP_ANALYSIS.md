@@ -100,7 +100,7 @@ DIRECTORIES=(
     "agents/qwen"
     
     # Authentik custom templates (from compose file: ./custom-templates)
-    "compose/security/authentik/custom-templates"
+    "compose/security/authentik-server/custom-templates"
 )
 ```
 
@@ -379,7 +379,7 @@ docker compose down
    # Additional directories that should be ignored
    projects/
    agents/
-   compose/security/authentik/custom-templates/
+   compose/security/authentik-server/custom-templates/
    ```
 
 2. **Create README for secrets share:**

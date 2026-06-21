@@ -22,8 +22,8 @@
 | **openwebui** | ai | ai | `compose/ai/openwebui/docker-compose.yml` | healthy | https://chat.wazzan.us | proxy, ai-ml | webui_secret_key |
 | **qdrant** | ai | ai | `compose/ai/qdrant/docker-compose.yml` | healthy | http://localhost:6333 | ai-ml | - |
 | **searxng** | ai | ai | `compose/ai/searxng/docker-compose.yml` | healthy | https://search.wazzan.us | proxy, ai-ml | webui_secret_key |
-| **authentik-server** | security | security | `compose/security/authentik/docker-compose.yml` | healthy | https://auth.wazzan.us | proxy, database, security | authentik_secret_key, redis_password, postgres_password |
-| **authentik-worker** | security | security | `compose/security/authentik/docker-compose.yml` | healthy | internal only | database, security | authentik_secret_key, redis_password, postgres_password |
+| **authentik-server** | security | security | `compose/security/authentik-server/docker-compose.yml` | healthy | https://auth.wazzan.us | proxy, database, security | authentik_secret, redis_password, postgres_password |
+| **authentik-worker** | security | security | `compose/security/authentik-worker/docker-compose.yml` | healthy | internal only | database, security | authentik_secret, redis_password, postgres_password |
 | **vaultwarden** | security | security | `compose/security/vaultwarden/docker-compose.yml` | healthy | https://vault.wazzan.us | proxy, security | vw_admin_token |
 | **prometheus** | monitoring | monitoring | `compose/monitoring/prometheus/docker-compose.yml` | healthy | http://localhost:9090 | monitoring | - |
 | **grafana** | monitoring | monitoring | `compose/monitoring/grafana/docker-compose.yml` | healthy | http://localhost:3000 | monitoring | - |
@@ -83,11 +83,11 @@ Authentication, authorization, and secrets management for the entire stack.
 
 | Service | Role | Compose File | External Access | Key Ports | Secrets |
 |---------|------|--------------|-----------------|-----------|---------|
-| **authentik-server** | Identity provider & SSO | `compose/security/authentik/` | https://auth.wazzan.us | - | authentik_secret_key, redis_password, postgres_password |
-| **authentik-worker** | Async task worker for authentik | `compose/security/authentik/` | Internal only | - | authentik_secret_key, redis_password, postgres_password |
+| **authentik-server** | Identity provider & SSO | `compose/security/authentik-server/` | https://auth.wazzan.us | - | authentik_secret, redis_password, postgres_password |
+| **authentik-worker** | Async task worker for authentik | `compose/security/authentik-worker/` | Internal only | - | authentik_secret, redis_password, postgres_password |
 | **vaultwarden** | Bitwarden-compatible password manager | `compose/security/vaultwarden/` | https://vault.wazzan.us | - | vw_admin_token |
 
-> Both authentik-server and authentik-worker are defined in the same compose file (`compose/security/authentik/docker-compose.yml`) and share the same three secrets.
+> authentik-server and authentik-worker are defined in separate compose files and share the same three secrets.
 
 ### 2.3 Monitoring (7 services)
 
@@ -416,7 +416,8 @@ Tier 1: Core Proxy & Network
   traefik (compose/network/traefik/), cloudflared (compose/network/cloudflared/)
 
 Tier 2: Database-Dependent Services
-  authentik-server, authentik-worker (compose/security/authentik/ — needs postgres + redis)
+  authentik-server (compose/security/authentik-server/ — needs postgres + redis)
+  authentik-worker (compose/security/authentik-worker/ — needs postgres + redis)
   gitea (compose/ci/gitea/ — needs postgres)
   n8n (compose/ci/n8n/ — needs postgres)
   guacamole (compose/productivity/guacamole/ — needs postgres + guacd)
@@ -494,7 +495,7 @@ All publicly accessible services are routed through Traefik on the `proxy` netwo
 | omniroute.wazzan.us | omniroute | ai | `compose/ai/omniroute/` |
 | chat.wazzan.us | openwebui | ai | `compose/ai/openwebui/` |
 | search.wazzan.us | searxng | ai | `compose/ai/searxng/` |
-| auth.wazzan.us | authentik-server | security | `compose/security/authentik/` |
+| auth.wazzan.us | authentik-server | security | `compose/security/authentik-server/` |
 | vault.wazzan.us | vaultwarden | security | `compose/security/vaultwarden/` |
 | cadvisor.wazzan.us | cadvisor | monitoring | `compose/monitoring/cadvisor/` |
 | logs.wazzan.us | dozzle | monitoring | `compose/monitoring/dozzle/` |

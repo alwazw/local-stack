@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   omniroute:
@@ -34,6 +34,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
       - "traefik.http.routers.omniroute.entrypoints=websecure"
+      - "traefik.http.routers.omniroute-web.entrypoints=web"
+      - "traefik.http.routers.omniroute-web.rule=Host(`omniroute.${DOMAIN}`)"
       - "traefik.http.routers.omniroute.tls.certresolver=cloudflare"
       - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
     healthcheck:

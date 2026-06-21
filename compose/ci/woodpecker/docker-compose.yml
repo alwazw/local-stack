@@ -31,6 +31,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.woodpecker.rule=Host(`ci.${DOMAIN}`)"
       - "traefik.http.routers.woodpecker.entrypoints=websecure"
+      - "traefik.http.routers.woodpecker-web.entrypoints=web"
+      - "traefik.http.routers.woodpecker-web.rule=Host(`ci.${DOMAIN}`)"
       - "traefik.http.routers.woodpecker.tls.certresolver=cloudflare"
       - "traefik.http.services.woodpecker.loadbalancer.server.port=8000"
       - "homepage.group=CI/CD"

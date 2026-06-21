@@ -1,3 +1,5 @@
+#version: "3.8"
+
 services:
   grafana:
     image: grafana/grafana:latest
@@ -7,13 +9,15 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_SERVER_ROOT_URL: "http://localhost:${PORT_GRAFANA}"
+      GF_SERVER_ROOT_URL: "https://grafana.wazzan.us"
     volumes:
-      - grafana_data:/var/lib/grafana
+      # FIX: Bind directly to the local directory in your tree
+      - ./grafana_data:/var/lib/grafana
     ports:
       - "127.0.0.1:${PORT_GRAFANA}:3000"
     networks:
       - monitoring
+      - proxy
     depends_on:
       - prometheus
     secrets:
@@ -22,8 +26,16 @@ services:
       - "homepage.group=Monitoring"
       - "homepage.name=Grafana"
       - "homepage.icon=grafana.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_GRAFANA}"
+      - "homepage.href=https://grafana.wazzan.us"
       - "homepage.description=Metrics visualization and dashboards"
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana-web.entrypoints=web"
+      - "traefik.http.routers.grafana-web.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.grafana.tls.certresolver=cloudflare"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
@@ -34,7 +46,7 @@ services:
 networks:
   monitoring:
     external: true
-
-volumes:
-  grafana_data:
+  proxy:
     external: true
+
+# FIX: Removed the bottom volumes block entirely since bind mounts don't need it.

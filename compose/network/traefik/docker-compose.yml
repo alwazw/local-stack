@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   traefik:
@@ -17,8 +17,6 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=proxy
       - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
       - --entrypoints.websecure.http.tls=true
       - --certificatesresolvers.cloudflare.acme.dnschallenge=true
@@ -30,7 +28,7 @@ services:
     ports:
       - "0.0.0.0:${PORT_TRAEFIK_HTTP}:80"
       - "0.0.0.0:${PORT_TRAEFIK_HTTPS}:443"
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${PORT_TRAEFIK_DASHBOARD:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./data:/data
@@ -47,6 +45,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik-web.entrypoints=web"
+      - "traefik.http.routers.traefik-web.rule=Host(`traefik.${DOMAIN}`)"
       - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
       - "traefik.http.routers.traefik.service=api@internal"
       - "homepage.group=Network"

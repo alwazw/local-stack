@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   cadvisor:
@@ -20,6 +20,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.${DOMAIN}`)"
       - "traefik.http.routers.cadvisor.entrypoints=websecure"
+      - "traefik.http.routers.cadvisor-web.entrypoints=web"
+      - "traefik.http.routers.cadvisor-web.rule=Host(`cadvisor.${DOMAIN}`)"
       - "traefik.http.routers.cadvisor.tls.certresolver=cloudflare"
       - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
       - "homepage.group=Monitoring"

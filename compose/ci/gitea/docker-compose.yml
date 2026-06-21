@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   gitea:
@@ -24,7 +24,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "127.0.0.1:${PORT_GITEA:-3001}:3000"
-      - "127.0.0.1:2222:22"
+      - "127.0.0.1:${PORT_GITEA_SSH:-2222}:22"
     networks:
       - proxy
       - database
@@ -44,6 +44,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.gitea.rule=Host(`gitea.${DOMAIN}`)"
       - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea-web.entrypoints=web"
+      - "traefik.http.routers.gitea-web.rule=Host(`gitea.${DOMAIN}`)"
       - "traefik.http.routers.gitea.tls.certresolver=cloudflare"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
       - "homepage.group=CI/CD"

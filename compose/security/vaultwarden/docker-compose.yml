@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   vaultwarden:
@@ -29,10 +29,14 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.vaultwarden.rule=Host(`vault.${DOMAIN}`)"
       - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden-web.entrypoints=web"
+      - "traefik.http.routers.vaultwarden-web.rule=Host(`vault.${DOMAIN}`)"
       - "traefik.http.routers.vaultwarden.tls.certresolver=cloudflare"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       - "traefik.http.routers.vaultwarden-ws.rule=Host(`vault.${DOMAIN}`) && Path(`/notifications/hub`)"
       - "traefik.http.routers.vaultwarden-ws.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden-ws-web.entrypoints=web"
+      - "traefik.http.routers.vaultwarden-ws-web.rule=Host(`vault.${DOMAIN}`) && Path(`/notifications/hub`)"
       - "traefik.http.routers.vaultwarden-ws.service=vaultwarden"
       - "traefik.http.routers.vaultwarden-ws.tls.certresolver=cloudflare"
     healthcheck:

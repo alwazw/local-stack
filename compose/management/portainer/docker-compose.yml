@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   portainer:
@@ -17,6 +17,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer-web.entrypoints=web"
+      - "traefik.http.routers.portainer-web.rule=Host(`portainer.${DOMAIN}`)"
       - "traefik.http.routers.portainer.tls.certresolver=cloudflare"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "homepage.group=Management"
@@ -27,10 +29,6 @@ services:
 
 networks:
   proxy:
-    external: true
-  ai-ml:
-    external: true
-  database:
     external: true
     
 volumes:

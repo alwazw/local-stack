@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   authentik-server:
@@ -34,8 +34,13 @@ services:
       - postgres_password
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
+      # Matches both the admin setup domain and the clean dashboard domain
+      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`) || Host(`app.${DOMAIN}`)"
       - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls.certresolver=cloudflare"
+      - "traefik.http.routers.authentik-web.entrypoints=web"
+      - "traefik.http.routers.authentik-web.rule=Host(`auth.${DOMAIN}`) || Host(`app.${DOMAIN}`)"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
 
 networks:
   proxy:

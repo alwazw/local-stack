@@ -360,7 +360,7 @@ check_log_errors() {
       local top_error
       top_error=$(docker logs --since 5m "$name" 2>&1 | grep -iE \
         "(fatal|panic|error|exception|crash|oom|killed|failed|refused|timeout)" \
-        2>/dev/null | head -1 | cut -c1-120)
+        2>/dev/null | head -1 | cut -c1-120 || true)
       log_warn "$name: $errs error lines — sample: $top_error"
       error_services+=("$name")
     fi
@@ -463,6 +463,347 @@ auto_heal() {
 }
 
 # ============================================================================
+# CHECK 8: Port Conflict Detection (Host + Internal Network)
+# ============================================================================
+# FAILURE MODE 1 (Host): Two services bind the same host port.
+#   SYMPTOM: "port already allocated" on docker compose up.
+#   FIX: Ensure unique host ports in .env.
+# FAILURE MODE 2 (Internal): Two containers on the same Docker network expose
+#   the same internal port. Docker DNS resolves by container name so this is
+#   usually benign, but causes confusion in Traefik auto-discovery and makes
+#   the architecture harder to reason about.
+#   FIX: Remove unnecessary network attachments; ensure all Traefik-routed
+#   services have explicit loadbalancer.server.port labels.
+# ============================================================================
+check_port_conflicts() {
+  log_section "CHECK 8: Port Conflicts (Host + Internal)"
+
+  # ── Part A: Host port conflicts ──
+  log_info "Checking host port bindings..."
+  local -A host_port_map
+  local host_conflicts=0
+
+  while IFS= read -r line; do
+    local name ports
+    name=$(echo "$line" | cut -d: -f1 | xargs)
+    ports=$(echo "$line" | cut -d: -f2-)
+
+    while read -r binding; do
+      if [[ "$binding" =~ ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+):([0-9]+)-\> ]]; then
+        local host_port="${BASH_REMATCH[2]}"
+        if [[ -n "${host_port_map[$host_port]:-}" ]]; then
+          log_fail "HOST CONFLICT: Port $host_port used by ${host_port_map[$host_port]} and $name"
+          ((host_conflicts++)) || true
+        else
+          host_port_map[$host_port]="$name"
+        fi
+      fi
+    done < <(echo "$ports" | tr ',' '\n' | xargs)
+  done < <(docker ps --format '{{.Names}}: {{.Ports}}')
+
+  if [[ $host_conflicts -eq 0 ]]; then
+    log_ok "Host ports: No conflicts (${#host_port_map[@]} unique ports in use)"
+  else
+    log_fail "Host ports: $host_conflicts conflict(s) — check .env for duplicates"
+  fi
+
+  # Check for unbound ports (services exposing to all interfaces)
+  local unbound=0
+  while IFS= read -r line; do
+    if echo "$line" | grep -qP '0\.0\.0\.0:[0-9]+->'; then
+      local name=$(echo "$line" | cut -d: -f1 | xargs)
+      if [[ "$name" != "traefik" && "$name" != "homepage" ]]; then
+        log_warn "$name: port exposed to 0.0.0.0 (all interfaces)"
+        ((unbound++)) || true
+      fi
+    fi
+  done < <(docker ps --format '{{.Names}}: {{.Ports}}')
+
+  if [[ $unbound -eq 0 ]]; then
+    log_ok "Bind addresses: All non-public ports bound to 127.0.0.1"
+  fi
+
+  # ── Part B: Internal network port conflicts ──
+  log_info "Checking internal network port overlaps..."
+  local internal_conflicts=0
+  local -a conflict_lines=()
+
+  # Build network:port → container mapping
+  local tmpfile
+  tmpfile=$(mktemp)
+  local all_names
+  all_names=$(docker ps --format '{{.Names}}' | sort)
+  
+  for name in $all_names; do
+    local networks ports_json internal_ports
+    networks=$(docker inspect "$name" --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true)
+    ports_json=$(docker inspect "$name" --format='{{json .NetworkSettings.Ports}}' 2>/dev/null || true)
+    internal_ports=$(echo "$ports_json" | grep -oP '"(\d+)/tcp"' 2>/dev/null | sed 's/"//g; s/\/tcp//g' | sort -un || true)
+    for net in $networks; do
+      for port in $internal_ports; do
+        echo "$net:$port:$name" >> "$tmpfile"
+      done
+    done
+  done
+
+  # Find conflicts (same network:port with >1 container)
+  local awk_output
+  awk_output=$(awk -F: '{key=$1":"$2; containers[key]=containers[key] " " $3; count[key]++} END {for (k in count) if (count[k]>1) print k " →" containers[k] " (" count[k] ")"}' "$tmpfile" 2>/dev/null | sort || true)
+  
+  if [[ -n "$awk_output" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      log_warn "INTERNAL: $line"
+      ((internal_conflicts++)) || true
+    done <<< "$awk_output"
+  fi
+
+  rm -f "$tmpfile"
+
+  if [[ $internal_conflicts -eq 0 ]]; then
+    log_ok "Internal ports: No network conflicts"
+  else
+    log_info "Internal ports: $internal_conflicts overlap(s) detected"
+    log_info "These are usually benign (Docker DNS resolves by container name)"
+    log_info "Ensure all Traefik-routed services have explicit loadbalancer.server.port labels"
+  fi
+
+  # ── Part C: Missing Traefik port labels ──
+  log_info "Checking Traefik label completeness..."
+  local missing_labels=0
+  while IFS= read -r name; do
+    local has_traefik has_port_label
+    has_traefik=$(docker inspect "$name" --format='{{index .Config.Labels "traefik.enable"}}' 2>/dev/null)
+    if [[ "$has_traefik" == "true" ]]; then
+      # Skip traefik itself — it uses api@internal service
+      if [[ "$name" == "traefik" ]]; then continue; fi
+      has_port_label=$(docker inspect "$name" --format='{{json .Config.Labels}}' 2>/dev/null | grep -c "loadbalancer.server.port" || true)
+      if [[ "$has_port_label" -eq 0 ]]; then
+        log_warn "$name: Traefik enabled but missing loadbalancer.server.port label"
+        ((missing_labels++)) || true
+      fi
+    fi
+  done < <(docker ps --format '{{.Names}}')
+
+  if [[ $missing_labels -eq 0 ]]; then
+    log_ok "Traefik labels: All routed services have explicit port labels"
+  else
+    log_fail "Traefik labels: $missing_labels service(s) missing loadbalancer.server.port"
+    log_info "Fix: Add traefik.http.services.<name>.loadbalancer.server.port=<port> label"
+  fi
+}
+
+# ============================================================================
+# CHECK 9: .env Compliance Validation
+# ============================================================================
+# FAILURE MODE: Ports hardcoded in compose files instead of using variables.
+# SYMPTOMS: Changing ports requires editing multiple files instead of .env.
+# REQUIREMENTS:
+#   1. All ports in compose files must use ${PORT_*:-default} syntax
+#   2. All PORT_* variables must be defined in .env.example
+#   3. .env.example ports must be sorted by port number
+#   4. No duplicate port values in .env.example
+# ============================================================================
+check_env_compliance() {
+  log_section "CHECK 9: .env Compliance"
+
+  local env_file="$PROJECT_ROOT/.env"
+  local env_example="$PROJECT_ROOT/.env.example"
+  local issues=0
+
+  # Check if .env exists
+  if [[ ! -f "$env_file" ]]; then
+    log_fail ".env file not found — run: cp .env.example .env"
+    return
+  fi
+
+  # Extract PORT_* variables from .env
+  local -A env_ports
+  while IFS='=' read -r var val; do
+    if [[ "$var" =~ ^PORT_ ]]; then
+      env_ports[$var]="$val"
+    fi
+  done < <(grep -E '^PORT_' "$env_file")
+
+  # Check for duplicate port values
+  local -A port_values
+  for var in "${!env_ports[@]}"; do
+    local port="${env_ports[$var]}"
+    if [[ -n "${port_values[$port]:-}" ]]; then
+      log_fail "DUPLICATE PORT: $var and ${port_values[$port]} both use port $port"
+      ((issues++)) || true
+    else
+      port_values[$port]="$var"
+    fi
+  done
+
+  # Check if ports are sorted in .env.example
+  if [[ -f "$env_example" ]]; then
+    local prev_port=0
+    local sorted=true
+    while IFS='=' read -r var val; do
+      if [[ "$var" =~ ^PORT_ && "$val" =~ ^[0-9]+$ ]]; then
+        if [[ $val -lt $prev_port ]]; then
+          sorted=false
+          break
+        fi
+        prev_port=$val
+      fi
+    done < <(grep -E '^PORT_' "$env_example")
+
+    if $sorted; then
+      log_ok "Ports in .env.example are sorted numerically"
+    else
+      log_warn "Ports in .env.example are NOT sorted by port number"
+    fi
+  fi
+
+  # Scan compose files for hardcoded ports
+  local hardcoded=0
+  while IFS= read -r file; do
+    # Look for port mappings that don't use ${VAR} syntax
+    if grep -qE '^\s*-\s*"(127\.0\.0\.1|0\.0\.0\.0):[0-9]+:' "$file"; then
+      local service=$(basename "$(dirname "$file")")
+      log_warn "$service: hardcoded port in $file"
+      ((hardcoded++)) || true
+    fi
+  done < <(find "$PROJECT_ROOT/compose" -name 'docker-compose.yml' -not -path '*/data/*' 2>/dev/null)
+
+  if [[ $hardcoded -eq 0 ]]; then
+    log_ok "All compose files use \${PORT_*:-default} variable syntax"
+  else
+    log_fail "$hardcoded compose file(s) have hardcoded ports"
+    log_info "Fix: Replace hardcoded ports with \${PORT_SERVICE:-default} syntax"
+  fi
+
+  # Check for variable syntax consistency (${VAR:-default} not ${VAR-default})
+  local bad_syntax=0
+  while IFS= read -r file; do
+    if grep -qE '\$\{[A-Z_]+-[0-9]+' "$file" && ! grep -qE '\$\{[A-Z_]+:-[0-9]+' "$file"; then
+      local service=$(basename "$(dirname "$file")")
+      log_warn "$service: uses \${VAR-default} instead of \${VAR:-default}"
+      ((bad_syntax++)) || true
+    fi
+  done < <(find "$PROJECT_ROOT/compose" -name 'docker-compose.yml' -not -path '*/data/*' 2>/dev/null)
+
+  if [[ $bad_syntax -eq 0 ]]; then
+    log_ok "All compose files use consistent \${VAR:-default} syntax"
+  fi
+
+  # Summary
+  local total_ports=${#env_ports[@]}
+  log_info "Total port variables in .env: $total_ports"
+
+  if [[ $issues -eq 0 && $hardcoded -eq 0 ]]; then
+    log_ok ".env compliance: PASS"
+  else
+    log_fail ".env compliance: FAIL ($issues issues, $hardcoded hardcoded ports)"
+  fi
+}
+
+# ============================================================================
+# CHECK 10: Network Diagnostics
+# ============================================================================
+# FAILURE MODE: Docker bridge networking broken on WSL2.
+# SYMPTOMS: Containers can't reach each other or the internet.
+# ROOT CAUSE: WSL2 kernel sets bridge-nf-call-iptables=1, but Docker only
+# creates iptables rules for docker0, not custom bridges.
+# FIX: Run fix-docker-networking.sh or apply rules manually.
+# ============================================================================
+check_network_diagnostics() {
+  log_section "CHECK 10: Network Diagnostics"
+
+  # Check if we're on WSL2
+  if ! grep -qi microsoft /proc/version 2>/dev/null; then
+    log_info "Not running on WSL2 — skipping WSL2-specific checks"
+    return
+  fi
+
+  log_info "WSL2 environment detected"
+
+  # Check bridge-nf-call-iptables
+  local bridge_nf
+  bridge_nf=$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || echo "0")
+
+  if [[ "$bridge_nf" == "1" ]]; then
+    log_warn "bridge-nf-call-iptables is ON (WSL2 default)"
+    log_info "This causes Docker bridge traffic to go through iptables FORWARD chain"
+  else
+    log_ok "bridge-nf-call-iptables is OFF"
+  fi
+
+  # Check iptables FORWARD policy
+  local forward_policy
+  forward_policy=$(sudo iptables -L FORWARD -n 2>/dev/null | head -1 | grep -oP 'policy \K\w+' || echo "UNKNOWN")
+
+  log_info "iptables FORWARD policy: $forward_policy"
+
+  # Check if fix-docker-networking.sh exists and is executable
+  local fix_script="$PROJECT_ROOT/scripts/fix-docker-networking.sh"
+  if [[ -x "$fix_script" ]]; then
+    log_ok "fix-docker-networking.sh exists and is executable"
+
+    # Check if the script has been run (look for our custom rules)
+    if sudo iptables -C FORWARD -m physdev --physdev-is-bridged -j ACCEPT 2>/dev/null; then
+      log_ok "Same-bridge ACCEPT rule: PRESENT"
+    else
+      log_fail "Same-bridge ACCEPT rule: MISSING"
+      log_info "Run: sudo bash $fix_script"
+    fi
+
+    if sudo iptables -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null; then
+      log_ok "RELATED,ESTABLISHED rule: PRESENT"
+    else
+      log_fail "RELATED,ESTABLISHED rule: MISSING"
+    fi
+
+    # Check outbound rule
+    local outbound_iface
+    outbound_iface=$(ip route show default 2>/dev/null | awk '/default/ {print $5}' | head -1)
+    if [[ -n "$outbound_iface" ]]; then
+      if sudo iptables -C FORWARD -o "$outbound_iface" -j ACCEPT 2>/dev/null; then
+        log_ok "Outbound ACCEPT rule ($outbound_iface): PRESENT"
+      else
+        log_fail "Outbound ACCEPT rule ($outbound_iface): MISSING"
+      fi
+    fi
+  else
+    log_fail "fix-docker-networking.sh not found or not executable"
+    log_info "Create it at: $fix_script"
+  fi
+
+  # Test inter-container connectivity
+  log_info "Testing container-to-container connectivity..."
+
+  # Pick two containers on the same network to test
+  local test_result
+  test_result=$(docker exec postgres pg_isready -h localhost 2>&1 || echo "FAIL")
+  if echo "$test_result" | grep -q "accepting"; then
+    log_ok "postgres self-connect: OK"
+  else
+    log_fail "postgres self-connect: FAILED"
+  fi
+
+  # Test container-to-internet
+  test_result=$(docker exec postgres timeout 3 bash -c "echo > /dev/tcp/8.8.8.8/53" 2>&1 && echo "OK" || echo "FAIL")
+  if [[ "$test_result" == "OK" ]]; then
+    log_ok "Container outbound internet: OK"
+  else
+    log_fail "Container outbound internet: FAILED"
+    log_info "Containers cannot reach external services"
+  fi
+
+  # Check MASQUERADE rules for Docker networks
+  local masq_count
+  masq_count=$(sudo iptables -t nat -L POSTROUTING -n 2>/dev/null | grep -c "MASQUERADE.*172\." || echo "0")
+  log_info "MASQUERADE rules for Docker networks: $masq_count"
+
+  if [[ $masq_count -lt 3 ]]; then
+    log_warn "Low MASQUERADE rule count — some networks may not have NAT rules"
+  fi
+}
+
+# ============================================================================
 # Deep-dive: Single Service Diagnostic
 # ============================================================================
 diagnose_service() {
@@ -554,6 +895,9 @@ case "$MODE" in
     check_cloudflared
     check_log_errors
     check_resources
+    check_port_conflicts
+    check_env_compliance
+    check_network_diagnostics
     ;;
   heal)
     check_docker_networking
@@ -567,6 +911,9 @@ case "$MODE" in
     check_cloudflared
     check_log_errors
     check_resources
+    check_port_conflicts
+    check_env_compliance
+    check_network_diagnostics
     auto_heal
     ;;
 esac

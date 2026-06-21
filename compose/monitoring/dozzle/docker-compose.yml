@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   dozzle:
@@ -14,6 +14,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dozzle.rule=Host(`logs.${DOMAIN}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle-web.entrypoints=web"
+      - "traefik.http.routers.dozzle-web.rule=Host(`logs.${DOMAIN}`)"
       - "traefik.http.routers.dozzle.tls.certresolver=cloudflare"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
       - "homepage.group=Monitoring"

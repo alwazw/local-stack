@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   searxng:
@@ -27,6 +27,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.searxng.rule=Host(`search.${DOMAIN}`)"
       - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng-web.entrypoints=web"
+      - "traefik.http.routers.searxng-web.rule=Host(`search.${DOMAIN}`)"
       - "traefik.http.routers.searxng.tls.certresolver=cloudflare"
       - "traefik.http.services.searxng.loadbalancer.server.port=8080"
       - "homepage.group=AI"

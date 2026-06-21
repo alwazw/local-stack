@@ -1,4 +1,4 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   # --- 1. THE AGENT ---
@@ -33,7 +33,7 @@ services:
       - ~/.ssh/id_ed25519:/home/hermes/.ssh/id_ed25519:ro
       - ~/.ssh/known_hosts:/home/hermes/.ssh/known_hosts:ro
     ports:
-      - "127.0.0.1:8642:8642" # Exposes the API endpoint to your host     network
+      - "127.0.0.1:${PORT_HERMES_AGENT:-8642}:8642"
     networks:
       - ai-ml
       - agent-communication
@@ -86,6 +86,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
       - "traefik.http.routers.hermes.entrypoints=websecure"
+      - "traefik.http.routers.hermes-web.entrypoints=web"
+      - "traefik.http.routers.hermes-web.rule=Host(`hermes.${DOMAIN}`)"
       - "traefik.http.routers.hermes.tls.certresolver=cloudflare"
       - "traefik.http.services.hermes.loadbalancer.server.port=8787"
     healthcheck:
