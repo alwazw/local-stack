@@ -24,7 +24,7 @@ services:
       - "homepage.group=Monitoring"
       - "homepage.name=Prometheus"
       - "homepage.icon=prometheus.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_PROMETHEUS}"
+      - "homepage.href=http://localhost:${PORT_PROMETHEUS}"
       - "homepage.description=Metrics collection and alerting"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]

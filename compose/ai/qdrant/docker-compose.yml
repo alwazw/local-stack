@@ -11,6 +11,7 @@ services:
     ports:
       - "127.0.0.1:${PORT_QDRANT:-6333}:6333"
     networks:
+      - proxy
       - ai-ml
     healthcheck:
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
@@ -19,13 +20,22 @@ services:
       retries: 3
       start_period: 15s
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qdrant.rule=Host(`qdrant.${DOMAIN}`)"
+      - "traefik.http.routers.qdrant.entrypoints=websecure"
+      - "traefik.http.routers.qdrant-web.entrypoints=web"
+      - "traefik.http.routers.qdrant-web.rule=Host(`qdrant.${DOMAIN}`)"
+      - "traefik.http.routers.qdrant.tls.certresolver=cloudflare"
+      - "traefik.http.services.qdrant.loadbalancer.server.port=6333"
       - "homepage.group=AI"
       - "homepage.name=Qdrant"
       - "homepage.icon=qdrant.png"
-      - "homepage.href=http://localhost:${PORT_QDRANT:-6333}/dashboard"
+      - "homepage.href=https://qdrant.${DOMAIN}/dashboard"
       - "homepage.description=Vector Database for embeddings"
 
 networks:
+  proxy:
+    external: true
   ai-ml:
     external: true
 

@@ -16,7 +16,7 @@ services:
       - "homepage.group=Monitoring"
       - "homepage.name=Uptime Kuma"
       - "homepage.icon=uptime-kuma.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_UPTIME}"
+      - "homepage.href=http://localhost:${PORT_UPTIME}"
       - "homepage.description=Uptime monitoring and status pages"
     healthcheck:
       test: ["CMD", "curl", "-f", "-s", "http://localhost:3001/api/entry-page"]

@@ -22,12 +22,20 @@ services:
     ports:
       - "127.0.0.1:${PORT_MCPO}:8000"
     networks:
+      - proxy
       - ai-ml
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcpo.rule=Host(`mcpo.${DOMAIN}`)"
+      - "traefik.http.routers.mcpo.entrypoints=websecure"
+      - "traefik.http.routers.mcpo-web.entrypoints=web"
+      - "traefik.http.routers.mcpo-web.rule=Host(`mcpo.${DOMAIN}`)"
+      - "traefik.http.routers.mcpo.tls.certresolver=cloudflare"
+      - "traefik.http.services.mcpo.loadbalancer.server.port=8000"
       - "homepage.group=AI Core"
       - "homepage.name=MCPO"
       - "homepage.icon=mcpo.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_MCPO}/docs"
+      - "homepage.href=https://mcpo.${DOMAIN}/docs"
       - "homepage.description=MCP-to-OpenAPI Bridge"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
@@ -37,5 +45,7 @@ services:
       start_period: 15s
 
 networks:
+  proxy:
+    external: true
   ai-ml:
     external: true

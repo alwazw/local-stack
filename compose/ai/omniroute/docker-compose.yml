@@ -29,7 +29,7 @@ services:
       - "homepage.group=AI Core"
       - "homepage.name=Omniroute"
       - "homepage.icon=omniroute.png"
-      - "homepage.href=http://localhost:${PORT_OMNIROUTE}"
+      - "homepage.href=https://omniroute.${DOMAIN}"
       - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
       - "traefik.enable=true"
       - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"

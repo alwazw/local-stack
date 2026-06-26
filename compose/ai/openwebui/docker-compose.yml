@@ -32,7 +32,9 @@ services:
       - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
       - "homepage.group=AI"
       - "homepage.name=OpenWebUI"
+      - "homepage.icon=open-webui.png"
       - "homepage.href=https://chat.${DOMAIN}"
+      - "homepage.description=Chat UI for AI agents and LLMs"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

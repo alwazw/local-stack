@@ -20,6 +20,7 @@ services:
       - "homepage.group=Network"
       - "homepage.name=Cloudflare Tunnel"
       - "homepage.icon=cloudflare.png"
+      - "homepage.href=https://dash.cloudflare.com"
       - "homepage.description=Cloudflare tunnel for external access"
 
 volumes:

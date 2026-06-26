@@ -11,6 +11,7 @@
 
 # version: "3.8"
 
+
 include:
   # Network
   - compose/network/traefik/docker-compose.yml
@@ -62,7 +63,7 @@ include:
 
 # =====================
 # Secrets — ALL secrets mounted as files, NEVER in .env or environment variables
-# Pattern: file: ./secrets/<name>.txt → mounted at /run/secrets/<name>
+# Pattern: file: ${FRAMEWORK_ROOT}/secrets/<name>.txt → mounted at /run/secrets/<name>
 # Services read secrets via:
 #   - _FILE env var (Postgres, Redis, Vaultwarden, etc.)
 #   - Entrypoint wrapper script (Traefik, Cloudflared)
@@ -70,80 +71,80 @@ include:
 secrets:
   # Cloudflare — Traefik DNS challenge + Tunnel
   cf_api_email:
-    file: ./secrets/cf_api_email.txt
+    file: ${FRAMEWORK_ROOT}/secrets/cf_api_email.txt
   cf_dns_api_token:
-    file: ./secrets/cf_dns_api_token.txt
+    file: ${FRAMEWORK_ROOT}/secrets/cf_dns_api_token.txt
   cf_api_key:
-    file: ./secrets/cf_api_key.txt
+    file: ${FRAMEWORK_ROOT}/secrets/cf_api_key.txt
   cf_tunnel_token:
-    file: ./secrets/cf_tunnel_token.txt
+    file: ${FRAMEWORK_ROOT}/secrets/cf_tunnel_token.txt
 
   # Authentication & API keys
   authentik_secret:
-    file: ./secrets/authentik_secret.txt
+    file: ${FRAMEWORK_ROOT}/secrets/authentik_secret.txt
   hermes_password:
-    file: ./secrets/hermes_password.txt
+    file: ${FRAMEWORK_ROOT}/secrets/hermes_password.txt
   github_token:
-    file: ./secrets/github_token.txt
+    file: ${FRAMEWORK_ROOT}/secrets/github_token.txt
   agent_zero_key:
-    file: ./secrets/agent_zero_key.txt
+    file: ${FRAMEWORK_ROOT}/secrets/agent_zero_key.txt
 
   # Application secrets
   gitea_secret:
-    file: ./secrets/gitea_secret.txt
+    file: ${FRAMEWORK_ROOT}/secrets/gitea_secret.txt
   guac_admin_pass:
-    file: ./secrets/guac_admin_pass.txt
+    file: ${FRAMEWORK_ROOT}/secrets/guac_admin_pass.txt
   litellm_key:
-    file: ./secrets/litellm_key.txt
+    file: ${FRAMEWORK_ROOT}/secrets/litellm_key.txt
   n8n_key:
-    file: ./secrets/n8n_key.txt
+    file: ${FRAMEWORK_ROOT}/secrets/n8n_key.txt
   webui_secret_key:
-    file: ./secrets/open_web_ui.txt
+    file: ${FRAMEWORK_ROOT}/secrets/open_web_ui.txt
   vw_admin_token:
-    file: ./secrets/vw_admin_token.txt
+    file: ${FRAMEWORK_ROOT}/secrets/vw_admin_token.txt
 
   # Database credentials
   postgres_password:
-    file: ./secrets/postgres_password.txt
+    file: ${FRAMEWORK_ROOT}/secrets/postgres_password.txt
   redis_password:
-    file: ./secrets/redis_password.txt
+    file: ${FRAMEWORK_ROOT}/secrets/redis_password.txt
 
   # Productivity service secrets
   affine_database_url:
-    file: ./secrets/affine_database_url.txt
+    file: ${FRAMEWORK_ROOT}/secrets/affine_database_url.txt
   plane_database_url:
-    file: ./secrets/plane_database_url.txt
+    file: ${FRAMEWORK_ROOT}/secrets/plane_database_url.txt
   plane_redis_url:
-    file: ./secrets/plane_redis_url.txt
+    file: ${FRAMEWORK_ROOT}/secrets/plane_redis_url.txt
   plane_secret_key:
-    file: ./secrets/plane_secret_key.txt
+    file: ${FRAMEWORK_ROOT}/secrets/plane_secret_key.txt
   grafana_admin_password:
-    file: ./secrets/grafana_admin_password.txt
+    file: ${FRAMEWORK_ROOT}/secrets/grafana_admin_password.txt
 
   # SSH deploy key
   ssh_deploy_key:
-    file: ./secrets/ssh_deploy_key
+    file: ${FRAMEWORK_ROOT}/secrets/ssh_deploy_key
 
   # External LLM API Keys (for LiteLLM gateway)
   openrouter_key_1:
-    file: ./secrets/external_llm_keys/openrouter_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/openrouter_key_1.txt
   openrouter_key_2:
-    file: ./secrets/external_llm_keys/openrouter_key_2.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/openrouter_key_2.txt
   openrouter_key_3:
-    file: ./secrets/external_llm_keys/openrouter_key_3.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/openrouter_key_3.txt
   nvidia_nim_key_1:
-    file: ./secrets/external_llm_keys/nvidia_nim_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/nvidia_nim_key_1.txt
   gemini_key_1:
-    file: ./secrets/external_llm_keys/gemini_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/gemini_key_1.txt
   gemini_key_2:
-    file: ./secrets/external_llm_keys/gemini_key_2.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/gemini_key_2.txt
   gemini_key_3:
-    file: ./secrets/external_llm_keys/gemini_key_3.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/gemini_key_3.txt
   grok_key_1:
-    file: ./secrets/external_llm_keys/grok_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/grok_key_1.txt
   alibaba_key_1:
-    file: ./secrets/external_llm_keys/alibaba_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/alibaba_key_1.txt
   alibaba_key_2:
-    file: ./secrets/external_llm_keys/alibaba_key_2.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/alibaba_key_2.txt
   novita_key_1:
-    file: ./secrets/external_llm_keys/novita_key_1.txt
+    file: ${FRAMEWORK_ROOT}/secrets/external_llm_keys/novita_key_1.txt

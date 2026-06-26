@@ -10,9 +10,12 @@ services:
       - guacd_drive:/drive:rw
       - guacd_record:/record:rw
     networks:
+      - proxy
       - ai-ml
 
 networks:
+  proxy:
+    external: true
   ai-ml:
     external: true
 

@@ -32,6 +32,7 @@ services:
       - "127.0.0.1:${PORT_AGENTZERO}:80"
       - "127.0.0.1:${PORT_AGENTZERO_API:-8081}:8080"
     networks:
+      - proxy
       - ai-ml
       - agent-communication
     secrets:
@@ -39,10 +40,17 @@ services:
       - ssh_deploy_key
       - agent_zero_key
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent-zero.rule=Host(`agent-zero.${DOMAIN}`)"
+      - "traefik.http.routers.agent-zero.entrypoints=websecure"
+      - "traefik.http.routers.agent-zero-web.entrypoints=web"
+      - "traefik.http.routers.agent-zero-web.rule=Host(`agent-zero.${DOMAIN}`)"
+      - "traefik.http.routers.agent-zero.tls.certresolver=cloudflare"
+      - "traefik.http.services.agent-zero.loadbalancer.server.port=80"
       - "homepage.group=AI Core"
       - "homepage.name=Agent-Zero"
       - "homepage.icon=agent-zero.png"
-      - "homepage.href=http://${DOMAIN}:${PORT_AGENTZERO}"
+      - "homepage.href=https://agent-zero.${DOMAIN}"
       - "homepage.description=Orchestrator for AI Subagents (Coder, Researcher)"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/')"]
@@ -52,6 +60,8 @@ services:
       start_period: 60s
 
 networks:
+  proxy:
+    external: true
   ai-ml:
     external: true
   agent-communication:

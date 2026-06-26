@@ -13,15 +13,15 @@ services:
       AUTHENTIK_POSTGRESQL__HOST: postgres
       AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
       AUTHENTIK_POSTGRESQL__NAME: authentik
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
     ports:
       - "127.0.0.1:${PORT_AUTHENTIK}:9000"
     volumes:
-      - authentik_media:/media
+      - ./media:/media
       - ./custom-templates:/templates
       - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     networks:
@@ -41,7 +41,13 @@ services:
       - "traefik.http.routers.authentik-web.entrypoints=web"
       - "traefik.http.routers.authentik-web.rule=Host(`auth.${DOMAIN}`) || Host(`app.${DOMAIN}`)"
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
-
+      - "homepage.group=Security"
+      - "homepage.name=Authentik"
+      - "homepage.icon=authentik.png"
+      - "homepage.href=https://auth.${DOMAIN}"
+      - "homepage.description=Identity provider and SSO"
+    
+    
 networks:
   proxy:
     external: true
@@ -50,6 +56,4 @@ networks:
   security:
     external: true
 
-volumes:
-  authentik_media:
-    external: true
+

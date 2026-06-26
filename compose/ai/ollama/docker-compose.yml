@@ -11,16 +11,28 @@ services:
     ports:
       - "127.0.0.1:${PORT_OLLAMA}:11434"
     networks:
+      - proxy
       - ai-ml
     healthcheck:
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/11434"]
       interval: 60s
       start_period: 60s
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ollama.rule=Host(`ollama.${DOMAIN}`)"
+      - "traefik.http.routers.ollama.entrypoints=websecure"
+      - "traefik.http.routers.ollama-web.entrypoints=web"
+      - "traefik.http.routers.ollama-web.rule=Host(`ollama.${DOMAIN}`)"
+      - "traefik.http.routers.ollama.tls.certresolver=cloudflare"
+      - "traefik.http.services.ollama.loadbalancer.server.port=11434"
       - "homepage.group=AI"
       - "homepage.name=Ollama"
       - "homepage.icon=ollama.png"
+      - "homepage.href=https://ollama.${DOMAIN}"
+      - "homepage.description=Local LLM runtime and model serving"
 
 networks:
+  proxy:
+    external: true
   ai-ml:
     external: true

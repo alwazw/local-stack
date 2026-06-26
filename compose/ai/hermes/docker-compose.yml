@@ -5,7 +5,10 @@ services:
   hermes-agent:
     image: nousresearch/hermes-agent:latest
     container_name: hermes-agent
-    command: gateway run
+    entrypoint: ["/agent-entrypoint.sh"]
+#    command: ["gateway", "run"]
+# Force the working directory context where the venv and source code sit
+#    working_dir: /opt/hermes
     restart: unless-stopped
 #    profiles: [ai]
     stdin_open: true
@@ -32,9 +35,14 @@ services:
 # 2. FIXED SSH PRIVILEGES: Mount your actual PRIVATE key into the hermes user workspace
       - ~/.ssh/id_ed25519:/home/hermes/.ssh/id_ed25519:ro
       - ~/.ssh/known_hosts:/home/hermes/.ssh/known_hosts:ro
+      - ${FRAMEWORK_ROOT}/compose/ai/hermes/agent-entrypoint.sh:/agent-entrypoint.sh:ro
     ports:
       - "127.0.0.1:${PORT_HERMES_AGENT:-8642}:8642"
+    secrets:
+      - hermes_password
+      - github_token
     networks:
+      - proxy
       - ai-ml
       - agent-communication
     healthcheck:
@@ -45,9 +53,9 @@ services:
       start_period: 60s
 
   # --- 2. THE WEB UI ---
-  hermes:
+  hermes-webui:
     image: ghcr.io/nesquena/hermes-webui:latest
-    container_name: hermes
+    container_name: hermes-webui
     restart: unless-stopped
 #    profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
@@ -68,7 +76,7 @@ services:
       # This line maps the source directly from the other volume so Python can find it!
       - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
       - hermes_workspace:/workspace
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - ${FRAMEWORK_ROOT}/compose/ai/hermes/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
     ports:
       - "127.0.0.1:${PORT_HERMES}:8787"
     networks:
@@ -81,7 +89,7 @@ services:
       - "homepage.group=AI Core"
       - "homepage.name=Hermes"
       - "homepage.icon=hermes.png"
-      - "homepage.href=http://localhost:${PORT_HERMES}"
+      - "homepage.href=https://hermes.${DOMAIN}"
       - "homepage.description=Self-hosted AI Agent with Memory & Tools"
       - "traefik.enable=true"
       - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
@@ -111,6 +119,16 @@ volumes:
   hermes_agent_src:
   hermes_workspace:
 
+#secrets:
+#  hermes_password:
+#    file: ../../../secrets/hermes_password.txt
+
+# At the bottom of compose/ai/hermes/docker-compose.yml
 secrets:
   hermes_password:
-    file: ../../../secrets/hermes_password.txt
+    file: ${FRAMEWORK_ROOT}/secrets/hermes_password.txt
+  github_token:
+    file: ${FRAMEWORK_ROOT}/secrets/github_token.txt
+
+
+
