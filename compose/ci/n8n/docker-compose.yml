@@ -37,4 +37,5 @@ services:
       - n8n_key
       - postgres_password
 
-
+volumes:
+  n8n_data:

@@ -32,4 +32,7 @@ services:
       - "homepage.href=https://dash.cloudflare.com"
       - "homepage.description=Cloudflare tunnel for external access"
 
+volumes:
+  cloudflared_bin:
+
 

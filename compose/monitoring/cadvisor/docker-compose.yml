@@ -4,13 +4,13 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     restart: unless-stopped
+    cap_add:
+      - ALL
     deploy:
       mode: global
       placement:
         constraints:
           - node.role == manager
-      cap_add:
-        - ALL
       restart_policy:
         condition: on-failure
         delay: 10s

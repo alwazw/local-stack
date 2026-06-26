@@ -22,4 +22,6 @@ services:
       - proxy
       - ai-ml
 
-
+volumes:
+  guacd_drive:
+  guacd_record:

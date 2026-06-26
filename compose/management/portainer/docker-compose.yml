@@ -36,4 +36,5 @@ services:
       - "homepage.href=https://portainer.${DOMAIN}"
       - "homepage.description=Docker container management"
 
-    
+volumes:
+  portainer_data:

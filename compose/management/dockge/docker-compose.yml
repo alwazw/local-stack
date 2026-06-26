@@ -38,4 +38,5 @@ services:
       - "homepage.href=https://dockge.${DOMAIN}"
       - "homepage.description=Docker Compose management UI"
 
-
+volumes:
+  dockge_data:

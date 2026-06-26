@@ -41,4 +41,5 @@ services:
       - postgres_password
       - gitea_secret
 
-
+volumes:
+  gitea_data:

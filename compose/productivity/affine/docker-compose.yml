@@ -32,4 +32,5 @@ services:
       - proxy
       - database
 
-
+volumes:
+  affine_data:

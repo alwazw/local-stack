@@ -30,4 +30,5 @@ services:
       - "homepage.href=http://localhost:${PORT_LOKI:-3100}"
       - "homepage.description=Log aggregation system"
 
-
+volumes:
+  loki_data:

@@ -30,3 +30,6 @@ services:
 
 
 # FIX: Removed the bottom volumes block entirely since bind mounts don't need it.
+
+volumes:
+  grafana_data:

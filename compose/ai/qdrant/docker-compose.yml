@@ -42,4 +42,5 @@ services:
       - "homepage.href=https://qdrant.${DOMAIN}/dashboard"
       - "homepage.description=Vector Database for embeddings"
 
-
+volumes:
+  qdrant_data:
