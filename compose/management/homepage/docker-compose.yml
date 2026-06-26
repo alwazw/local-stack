@@ -3,8 +3,17 @@
 services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
-    container_name: homepage
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [management]
     environment:
       - LOG_LEVEL=info
@@ -30,6 +39,3 @@ services:
       - "homepage.href=https://home.${DOMAIN}"
       - "homepage.description=Application dashboard"
 
-networks:
-  proxy:
-    external: true

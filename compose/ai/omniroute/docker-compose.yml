@@ -3,56 +3,19 @@
 services:
   omniroute:
     image: diegosouzapw/omniroute:latest
-    container_name: omniroute
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["node", "dev/run-standalone.mjs"]
-    depends_on:
-      - redis
-    environment:
-      PORT: "${PORT_OMNIROUTE}"
-      REQUIRE_API_KEY: "false"
-      DATA_DIR: /app/data
-    volumes:
-      - omniroute_data:/app/data
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
-    ports:
-      - "127.0.0.1:${PORT_OMNIROUTE}:20128"
-    networks:
-      - proxy
-      - ai-ml
-      - database
-    secrets:
-      - redis_password
-    labels:
-      - "homepage.group=AI Core"
-      - "homepage.name=Omniroute"
-      - "homepage.icon=omniroute.png"
-      - "homepage.href=https://omniroute.${DOMAIN}"
-      - "homepage.description=AI Gateway & Smart Router (177+ Providers)"
-      - "traefik.enable=true"
-      - "traefik.http.routers.omniroute.rule=Host(`omniroute.${DOMAIN}`)"
-      - "traefik.http.routers.omniroute.entrypoints=websecure"
-      - "traefik.http.routers.omniroute-web.entrypoints=web"
-      - "traefik.http.routers.omniroute-web.rule=Host(`omniroute.${DOMAIN}`)"
-      - "traefik.http.routers.omniroute.tls.certresolver=cloudflare"
-      - "traefik.http.services.omniroute.loadbalancer.server.port=20128"
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/20128"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true
-  database:
-    external: true
 
-volumes:
-  omniroute_data:
-    external: true

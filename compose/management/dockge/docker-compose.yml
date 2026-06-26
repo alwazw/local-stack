@@ -3,8 +3,17 @@
 services:
   dockge:
     image: louislam/dockge:latest
-    container_name: dockge
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [management]
     environment:
       DOCKGE_STACKS_DIR: /opt/stacks
@@ -29,10 +38,4 @@ services:
       - "homepage.href=https://dockge.${DOMAIN}"
       - "homepage.description=Docker Compose management UI"
 
-networks:
-  proxy:
-    external: true
 
-volumes:
-  dockge_data:
-    external: true

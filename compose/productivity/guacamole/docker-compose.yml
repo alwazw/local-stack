@@ -3,48 +3,16 @@
 services:
   guacamole:
     image: guacamole/guacamole:latest
-    container_name: guacamole
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [productivity]
-    depends_on:
-      - guacd
-      - postgres
-    environment:
-      GUACD_HOSTNAME: guacd
-      POSTGRESQL_HOSTNAME: postgres
-      POSTGRESQL_DATABASE: guacamole
-      POSTGRESQL_USER: ${POSTGRES_USER}
-      POSTGRESQL_PASSWORD_FILE: /run/secrets/postgres_password
-    secrets:
-      - postgres_password
-      - guac_admin_pass
-    networks:
-      - proxy
-      - database
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/guacamole"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.guacamole.rule=Host(`rdp.${DOMAIN}`)"
-      - "traefik.http.routers.guacamole.entrypoints=websecure"
-      - "traefik.http.routers.guacamole-web.entrypoints=web"
-      - "traefik.http.routers.guacamole-web.rule=Host(`rdp.${DOMAIN}`)"
-      - "traefik.http.routers.guacamole.tls.certresolver=cloudflare"
-      - "traefik.http.services.guacamole.loadbalancer.server.port=8080"
-      - "homepage.group=Productivity"
-      - "homepage.name=Guacamole"
-      - "homepage.icon=guacamole.png"
-      - "homepage.href=https://rdp.${DOMAIN}"
-      - "homepage.description=Remote desktop gateway (RDP/VNC/SSH)"
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true
-  database:
-    external: true

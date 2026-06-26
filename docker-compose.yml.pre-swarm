@@ -1,30 +1,23 @@
 # AEF3 - Autonomous Engineer Framework v3
-# Root   docker-compose.yml - orchestrates all services via Swarm stack deploy
-#        docker stack deploy -c docker-compose.yml aef3
+# Root   docker-compose.yml - orchestrates all services
+#        docker compose --profile monitoring up -d
 #
-# Usage: docker stack deploy -c docker-compose.yml aef3
-#        docker stack rm aef3
+# Usage: docker compose up -d (from project root)
+#        docker compose down   (tear down all)
+
 #
 # This file contains ONLY include directives, secrets, and networks.
 # Each service is defined in its own compose file under compose/<category>/<service>/docker-compose.yml
 
+# version: "3.8"
+
+
 include:
-  # === BATCH 1: Infrastructure (deploy first, validate, then proceed) ===
-  # Network — entrypoint for all traffic
+  # Network
   - compose/network/traefik/docker-compose.yml
   - compose/network/cloudflared/docker-compose.yml
 
-  # Data — shared infrastructure dependencies
-  - compose/data/postgres/docker-compose.yml
-  - compose/data/redis/docker-compose.yml
-
-  # Security — identity and secrets management
-  - compose/security/authentik-server/docker-compose.yml
-  - compose/security/authentik-worker/docker-compose.yml
-  - compose/security/vaultwarden/docker-compose.yml
-
-  # === BATCH 2: Applications (deploy after infrastructure is healthy) ===
-  # AI — LLM inference, agents, and tools
+  # AI
   - compose/ai/agent-zero/docker-compose.yml
   - compose/ai/litellm/docker-compose.yml
   - compose/ai/mcpo/docker-compose.yml
@@ -35,7 +28,16 @@ include:
   - compose/ai/qdrant/docker-compose.yml
   - compose/ai/searxng/docker-compose.yml
 
-  # Monitoring — observability pipeline
+  # Data
+  - compose/data/postgres/docker-compose.yml
+  - compose/data/redis/docker-compose.yml
+
+  # Security
+  - compose/security/authentik-server/docker-compose.yml
+  - compose/security/authentik-worker/docker-compose.yml
+  - compose/security/vaultwarden/docker-compose.yml
+
+  # Monitoring
   - compose/monitoring/prometheus/docker-compose.yml
   - compose/monitoring/grafana/docker-compose.yml
   - compose/monitoring/uptime-kuma/docker-compose.yml
@@ -44,49 +46,20 @@ include:
   - compose/monitoring/cadvisor/docker-compose.yml
   - compose/monitoring/dozzle/docker-compose.yml
 
-  # Management — container and stack management
+  # Management
   - compose/management/portainer/docker-compose.yml
   - compose/management/dockge/docker-compose.yml
   - compose/management/homepage/docker-compose.yml
 
-  # CI — source control and automation
+  # CI
   - compose/ci/gitea/docker-compose.yml
   - compose/ci/n8n/docker-compose.yml
 
-  # Productivity — knowledge and project management
+  # Productivity
   - compose/productivity/guacd/docker-compose.yml
   - compose/productivity/guacamole/docker-compose.yml
   - compose/productivity/affine/docker-compose.yml
   - compose/productivity/plane/docker-compose.yml
-
-# =====================
-# Networks — Swarm overlay networks (attachable for docker exec connectivity)
-# =====================
-networks:
-  proxy:
-    driver: overlay
-    attachable: true
-  database:
-    driver: overlay
-    attachable: true
-  security:
-    driver: overlay
-    attachable: true
-  monitoring:
-    driver: overlay
-    attachable: true
-  ai-ml:
-    driver: overlay
-    attachable: true
-  agent-communication:
-    driver: overlay
-    attachable: true
-  ci-cd:
-    driver: overlay
-    attachable: true
-  productivity:
-    driver: overlay
-    attachable: true
 
 # =====================
 # Secrets — ALL secrets mounted as files, NEVER in .env or environment variables
@@ -94,8 +67,6 @@ networks:
 # Services read secrets via:
 #   - _FILE env var (Postgres, Redis, Vaultwarden, etc.)
 #   - Entrypoint wrapper script (Traefik, Cloudflared)
-#
-# Secret rotation: docker secret rm <name> && docker stack deploy -c docker-compose.yml aef3
 # =====================
 secrets:
   # Cloudflare — Traefik DNS challenge + Tunnel

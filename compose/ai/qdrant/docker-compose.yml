@@ -3,8 +3,17 @@
 services:
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: qdrant
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     volumes:
       - qdrant_data:/qdrant/storage
@@ -33,12 +42,4 @@ services:
       - "homepage.href=https://qdrant.${DOMAIN}/dashboard"
       - "homepage.description=Vector Database for embeddings"
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true
 
-volumes:
-  qdrant_data:
-    external: true

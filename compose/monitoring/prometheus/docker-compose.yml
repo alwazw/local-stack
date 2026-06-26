@@ -3,8 +3,17 @@
 services:
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -33,6 +42,3 @@ services:
       retries: 3
       start_period: 10s
 
-networks:
-  monitoring:
-    external: true

@@ -3,8 +3,23 @@
 services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
     restart: unless-stopped
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      cap_add:
+        - ALL
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     privileged: true
     volumes:
@@ -29,9 +44,3 @@ services:
       - "homepage.icon=docker.png"
       - "homepage.href=https://cadvisor.${DOMAIN}"
       - "homepage.description=Container resource monitoring"
-
-networks:
-  monitoring:
-    external: true
-  proxy:
-    external: true

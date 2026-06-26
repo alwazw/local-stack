@@ -3,8 +3,17 @@
 services:
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
@@ -18,35 +27,6 @@ services:
     networks:
       - monitoring
       - proxy
-    depends_on:
-      - prometheus
-    secrets:
-      - grafana_admin_password
-    labels:
-      - "homepage.group=Monitoring"
-      - "homepage.name=Grafana"
-      - "homepage.icon=grafana.png"
-      - "homepage.href=https://grafana.wazzan.us"
-      - "homepage.description=Metrics visualization and dashboards"
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
-      - "traefik.http.routers.grafana.entrypoints=websecure"
-      - "traefik.http.routers.grafana-web.entrypoints=web"
-      - "traefik.http.routers.grafana-web.rule=Host(`grafana.${DOMAIN}`)"
-      - "traefik.http.routers.grafana.tls.certresolver=cloudflare"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-networks:
-  monitoring:
-    external: true
-  proxy:
-    external: true
 
 # FIX: Removed the bottom volumes block entirely since bind mounts don't need it.

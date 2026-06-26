@@ -3,8 +3,17 @@
 services:
   ollama:
     image: ollama/ollama:latest
-    container_name: ollama
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     volumes:
       - ./models:/root/.ollama
@@ -31,8 +40,3 @@ services:
       - "homepage.href=https://ollama.${DOMAIN}"
       - "homepage.description=Local LLM runtime and model serving"
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true

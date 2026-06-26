@@ -3,8 +3,17 @@
 services:
   agent-zero:
     image: agent-zero-langgraph:latest
-    container_name: agent-zero
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     environment:
       LLM_PROVIDER: "openai"
@@ -59,10 +68,3 @@ services:
       retries: 5
       start_period: 60s
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true
-  agent-communication:
-    external: true

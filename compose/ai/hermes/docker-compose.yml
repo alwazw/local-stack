@@ -4,12 +4,24 @@ services:
   # --- 1. THE AGENT ---
   hermes-agent:
     image: nousresearch/hermes-agent:latest
-    container_name: hermes-agent
     entrypoint: ["/agent-entrypoint.sh"]
 #    command: ["gateway", "run"]
 # Force the working directory context where the venv and source code sit
 #    working_dir: /opt/hermes
     restart: unless-stopped
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
 #    profiles: [ai]
     stdin_open: true
     tty: true
@@ -55,63 +67,24 @@ services:
   # --- 2. THE WEB UI ---
   hermes-webui:
     image: ghcr.io/nesquena/hermes-webui:latest
-    container_name: hermes-webui
     restart: unless-stopped
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
 #    profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["/hermeswebui_init.bash"]
-    depends_on:
-      hermes-agent:
-        condition: service_healthy
-    environment:
-      HERMES_WEBUI_STATE_DIR: /home/hermeswebui/.hermes/webui
-      HERMES_WEBUI_HOST: "0.0.0.0"
-      HERMES_WEBUI_PORT: "8787"
-      WANTED_UID: "1000"
-      WANTED_GID: "1000"
-      HERMES_AGENT_HOST: "hermes-agent"
-      HERMES_WEBUI_AGENT_DIR: "/home/hermeswebui/.hermes/hermes-agent"
-    volumes:
-      - hermes_home:/home/hermeswebui/.hermes
-      # This line maps the source directly from the other volume so Python can find it!
-      - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
-      - hermes_workspace:/workspace
-      - ${FRAMEWORK_ROOT}/compose/ai/hermes/entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
-    ports:
-      - "127.0.0.1:${PORT_HERMES}:8787"
-    networks:
-      - proxy
-      - ai-ml
-      - agent-communication
-    secrets:
-      - hermes_password
-    labels:
-      - "homepage.group=AI Core"
-      - "homepage.name=Hermes"
-      - "homepage.icon=hermes.png"
-      - "homepage.href=https://hermes.${DOMAIN}"
-      - "homepage.description=Self-hosted AI Agent with Memory & Tools"
-      - "traefik.enable=true"
-      - "traefik.http.routers.hermes.rule=Host(`hermes.${DOMAIN}`)"
-      - "traefik.http.routers.hermes.entrypoints=websecure"
-      - "traefik.http.routers.hermes-web.entrypoints=web"
-      - "traefik.http.routers.hermes-web.rule=Host(`hermes.${DOMAIN}`)"
-      - "traefik.http.routers.hermes.tls.certresolver=cloudflare"
-      - "traefik.http.services.hermes.loadbalancer.server.port=8787"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true
-  agent-communication:
-    external: true
 
 volumes:
   # Changing these from 'external: true' to local lets this file manage them cleanly together

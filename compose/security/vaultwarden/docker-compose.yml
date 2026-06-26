@@ -3,8 +3,17 @@
 services:
   vaultwarden:
     image: vaultwarden/server:latest
-    container_name: vaultwarden
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [security]
     environment:
       DOMAIN: ${VW_DOMAIN}
@@ -46,8 +55,3 @@ services:
       retries: 3
       start_period: 10s
 
-networks:
-  proxy:
-    external: true
-  security:
-    external: true

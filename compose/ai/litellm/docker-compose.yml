@@ -3,8 +3,17 @@
 services:
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
-    container_name: litellm
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
     environment:
@@ -65,8 +74,3 @@ services:
       retries: 5
       start_period: 30s
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true

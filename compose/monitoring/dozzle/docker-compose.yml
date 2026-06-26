@@ -3,8 +3,17 @@
 services:
   dozzle:
     image: amir20/dozzle:latest
-    container_name: dozzle
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -24,6 +33,3 @@ services:
       - "homepage.href=https://logs.${DOMAIN}"
       - "homepage.description=Real-time Docker log viewer"
 
-networks:
-  proxy:
-    external: true

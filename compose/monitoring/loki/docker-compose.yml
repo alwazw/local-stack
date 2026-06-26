@@ -3,8 +3,17 @@
 services:
   loki:
     image: grafana/loki:latest
-    container_name: loki
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     command: ["-config.file=/etc/loki/config.yaml"]
     volumes:
@@ -21,10 +30,4 @@ services:
       - "homepage.href=http://localhost:${PORT_LOKI:-3100}"
       - "homepage.description=Log aggregation system"
 
-networks:
-  monitoring:
-    external: true
 
-volumes:
-  loki_data:
-    external: true

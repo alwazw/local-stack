@@ -3,8 +3,17 @@
 services:
   searxng:
     image: searxng/searxng:latest
-    container_name: searxng
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     environment:
       SEARXNG_BASE_URL: "http://searxng:8080/"
@@ -37,8 +46,3 @@ services:
       - "homepage.href=https://search.${DOMAIN}"
       - "homepage.description=Privacy-respecting metasearch"
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true

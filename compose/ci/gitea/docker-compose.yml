@@ -3,8 +3,17 @@
 services:
   gitea:
     image: gitea/gitea:latest
-    container_name: gitea
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ci]
     environment:
       USER_UID: "1000"
@@ -31,35 +40,5 @@ services:
     secrets:
       - postgres_password
       - gitea_secret
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gitea.rule=Host(`gitea.${DOMAIN}`)"
-      - "traefik.http.routers.gitea.entrypoints=websecure"
-      - "traefik.http.routers.gitea-web.entrypoints=web"
-      - "traefik.http.routers.gitea-web.rule=Host(`gitea.${DOMAIN}`)"
-      - "traefik.http.routers.gitea.tls.certresolver=cloudflare"
-      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
-      - "homepage.group=CI/CD"
-      - "homepage.name=Gitea"
-      - "homepage.icon=gitea.png"
-      - "homepage.href=https://gitea.${DOMAIN}"
-      - "homepage.description=Self-hosted Git service"
 
-networks:
-  proxy:
-    external: true
-  database:
-    external: true
 
-volumes:
-  gitea_data:
-    external: true

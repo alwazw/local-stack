@@ -5,8 +5,17 @@
 services:
   plane-web:
     image: makeplane/plane-frontend:stable
-    container_name: plane-web
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [productivity]
     networks:
       - proxy
@@ -21,53 +30,17 @@ services:
 
   plane-api:
     image: makeplane/plane-backend:stable
-    container_name: plane-api
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [productivity]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["./bin/docker-entrypoint-api.sh"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      WEB_URL: "https://plane.${DOMAIN}"
-    volumes:
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
-      - ../../../secrets/plane_database_url.txt:/run/secrets/plane_database_url:ro
-      - ../../../secrets/plane_redis_url.txt:/run/secrets/plane_redis_url:ro
-      - ../../../secrets/plane_secret_key.txt:/run/secrets/plane_secret_key:ro
-    networks:
-      - proxy
-      - database
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.plane-api.rule=Host(`plane.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/static`))"
-      - "traefik.http.routers.plane-api.entrypoints=websecure"
-      - "traefik.http.routers.plane-api-web.entrypoints=web"
-      - "traefik.http.routers.plane-api-web.rule=Host(`plane.${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/static`))"
-      - "traefik.http.routers.plane-api.tls.certresolver=cloudflare"
-      - "traefik.http.services.plane-api.loadbalancer.server.port=8080"
-      - "traefik.http.routers.plane-api.priority=100"
-      - "homepage.group=Productivity"
-      - "homepage.name=Plane"
-      - "homepage.icon=plane.png"
-      - "homepage.href=https://plane.${DOMAIN}"
-      - "homepage.description=Project management (Jira alternative)"
-
-  plane-worker:
-    image: makeplane/plane-backend:stable
-    container_name: plane-worker
-    restart: unless-stopped
-    profiles: [productivity]
-    entrypoint: ["/entrypoint-wrapper.sh"]
-    command: ["./bin/docker-entrypoint-worker.sh"]
-    volumes:
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
-      - ../../../secrets/plane_database_url.txt:/run/secrets/plane_database_url:ro
-      - ../../../secrets/plane_redis_url.txt:/run/secrets/plane_redis_url:ro
-    networks:
-      - database
-    depends_on:
-      - plane-api

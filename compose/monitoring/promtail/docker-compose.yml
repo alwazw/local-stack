@@ -3,8 +3,17 @@
 services:
   promtail:
     image: grafana/promtail:latest
-    container_name: promtail
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     command: ["-config.file=/etc/promtail/config.yaml"]
     volumes:
@@ -13,10 +22,4 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - monitoring
-    depends_on:
-      loki:
-        condition: service_started
 
-networks:
-  monitoring:
-    external: true

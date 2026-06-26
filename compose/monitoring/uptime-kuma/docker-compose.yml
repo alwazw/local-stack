@@ -3,8 +3,17 @@
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:latest
-    container_name: uptime-kuma
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [monitoring]
     volumes:
       - uptime_kuma_data:/app/data
@@ -25,10 +34,4 @@ services:
       retries: 3
       start_period: 30s
 
-networks:
-  monitoring:
-    external: true
 
-volumes:
-  uptime_kuma_data:
-    external: true

@@ -3,8 +3,17 @@
 services:
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: openwebui
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [ai]
     environment:
 #      OLLAMA_BASE_URL: http://ollama:11434
@@ -38,8 +47,3 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-networks:
-  proxy:
-    external: true
-  ai-ml:
-    external: true

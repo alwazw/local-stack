@@ -3,8 +3,17 @@
 services:
   authentik-server:
     image: ghcr.io/goauthentik/server:2024.10.1
-    container_name: authentik-server
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [security]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["dumb-init", "--", "ak", "server"]
@@ -48,12 +57,5 @@ services:
       - "homepage.description=Identity provider and SSO"
     
     
-networks:
-  proxy:
-    external: true
-  database:
-    external: true
-  security:
-    external: true
 
 

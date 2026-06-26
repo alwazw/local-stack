@@ -3,8 +3,17 @@
 services:
   cloudflared:
     image: alpine:latest
-    container_name: cloudflared
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [network]
     entrypoint: ["/bin/sh", "/entrypoint-wrapper.sh"]
     environment:
@@ -23,9 +32,4 @@ services:
       - "homepage.href=https://dash.cloudflare.com"
       - "homepage.description=Cloudflare tunnel for external access"
 
-volumes:
-  cloudflared_bin:
 
-networks:
-  proxy:
-    external: true

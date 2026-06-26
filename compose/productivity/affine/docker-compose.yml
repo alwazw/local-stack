@@ -3,8 +3,17 @@
 services:
   affine:
     image: ghcr.io/toeverything/affine:stable
-    container_name: affine
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [productivity]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["node", "./dist/main.js"]
@@ -22,30 +31,5 @@ services:
     networks:
       - proxy
       - database
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.affine.rule=Host(`affine.${DOMAIN}`)"
-      - "traefik.http.routers.affine.entrypoints=websecure"
-      - "traefik.http.routers.affine-web.entrypoints=web"
-      - "traefik.http.routers.affine-web.rule=Host(`affine.${DOMAIN}`)"
-      - "traefik.http.routers.affine.tls.certresolver=cloudflare"
-      - "traefik.http.services.affine.loadbalancer.server.port=3010"
-      - "homepage.group=Productivity"
-      - "homepage.name=Affine"
-      - "homepage.icon=affine.png"
-      - "homepage.href=https://affine.${DOMAIN}"
-      - "homepage.description=Collaborative knowledge base"
 
-volumes:
-  affine_data:
 
-networks:
-  proxy:
-    external: true
-  database:
-    external: true

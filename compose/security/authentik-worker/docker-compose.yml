@@ -3,33 +3,18 @@
 services:
   authentik-worker:
     image: ghcr.io/goauthentik/server:2024.10.1
-    container_name: authentik-worker
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
     profiles: [security]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["dumb-init", "--", "ak", "worker"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_POSTGRESQL__HOST: postgres
-      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
-      AUTHENTIK_POSTGRESQL__NAME: authentik
-    networks:
-      - database
-      - security
-    secrets:
-      - authentik_secret
-      - redis_password
-      - postgres_password
-    volumes:
-      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
 
-networks:
-  database:
-    external: true
-  security:
-    external: true
