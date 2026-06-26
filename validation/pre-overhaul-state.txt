@@ -1,0 +1,31 @@
+loki	Up 4 hours	127.0.0.1:3100->3100/tcp
+plane-worker	Up 3 seconds	8000/tcp
+authentik-worker	Up 2 minutes (unhealthy)	
+plane-api	Up 2 seconds	8000/tcp
+omniroute	Up 4 hours (healthy)	127.0.0.1:20128->20128/tcp
+affine	Up 2 seconds	127.0.0.1:8083->3010/tcp
+n8n	Up 1 second (health: starting)	127.0.0.1:5678->5678/tcp
+gitea	Up 4 hours (healthy)	127.0.0.1:2222->22/tcp, 127.0.0.1:3001->3000/tcp
+guacamole	Up 4 hours (healthy)	8080/tcp
+grafana	Up 4 hours (healthy)	127.0.0.1:3003->3000/tcp
+promtail	Up 4 hours	
+litellm	Up 4 hours (healthy)	127.0.0.1:4000->4000/tcp
+agent-zero	Up 4 hours (healthy)	22/tcp, 9000-9009/tcp, 127.0.0.1:8501->80/tcp, 127.0.0.1:8081->8080/tcp
+authentik-server	Up 4 hours (unhealthy)	127.0.0.1:9000->9000/tcp
+openwebui	Up 4 hours (healthy)	127.0.0.1:3000->8080/tcp
+portainer	Up 4 hours	8000/tcp, 9000/tcp, 127.0.0.1:9443->9443/tcp
+qdrant	Up 4 hours (healthy)	127.0.0.1:6333->6333/tcp, 6334/tcp
+cloudflared	Up 4 hours	
+uptime-kuma	Up 4 hours (healthy)	127.0.0.1:3002->3001/tcp
+traefik	Up 4 hours (healthy)	0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp, 127.0.0.1:8080->8080/tcp
+dockge	Up 4 hours (healthy)	127.0.0.1:5001->5001/tcp
+mcpo	Up 4 hours (healthy)	127.0.0.1:8000->8000/tcp
+plane-web	Up 4 hours (healthy)	80/tcp, 3000/tcp
+vaultwarden	Up 4 hours (healthy)	127.0.0.1:8082->80/tcp
+prometheus	Up 4 hours (healthy)	127.0.0.1:9090->9090/tcp
+dozzle	Up 4 hours	8080/tcp
+homepage	Up 4 hours (healthy)	127.0.0.1:3004->3000/tcp
+cadvisor	Up 4 hours (healthy)	8080/tcp
+searxng	Up 4 hours (healthy)	8080/tcp
+ollama	Up 4 hours (healthy)	127.0.0.1:11434->11434/tcp
+guacd	Up 4 hours (healthy)	4822/tcp
