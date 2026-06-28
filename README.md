@@ -542,3 +542,5 @@ On WSL2, the Swarm routing mesh doesn't forward published ports to localhost. Se
 - **Internally**: via overlay DNS (e.g., `postgres:5432` from any container on the same network)
 - **Externally**: via Cloudflare Tunnel (e.g., `https://grafana.wazzan.us`)
 - **For debugging**: `docker exec <container> curl http://localhost:<port>`
+
+**For baremetal Ubuntu deployment (no WSL2 limitations):** see [docs/baremetal-deployment.md](docs/baremetal-deployment.md)
