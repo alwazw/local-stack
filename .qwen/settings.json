@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(github.com)"
+      "WebFetch(github.com)",
+      "Bash(echo *)",
+      "Bash(docker info *)",
+      "Bash(ls *)",
+      "Bash(true)"
     ]
   },
   "$version": 4

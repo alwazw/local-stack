@@ -1,0 +1,1787 @@
+services:
+  affine:
+    command:
+    - node
+    - ./dist/main.js
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    environment:
+      AFFINE_INDEXER_ENABLED: 'false'
+      NODE_ENV: production
+      REDIS_SERVER_HOST: redis
+    image: ghcr.io/toeverything/affine:stable
+    networks:
+      database:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 3010
+      published: 8083
+      protocol: tcp
+    volumes:
+    - type: volume
+      source: affine_data
+      target: /root/.affine
+      volume: {}
+    - type: bind
+      source: /mnt/d/docker/compose/productivity/affine/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/secrets/redis_password.txt
+      target: /run/secrets/redis_password
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/secrets/affine_database_url.txt
+      target: /run/secrets/affine_database_url
+      read_only: true
+      bind: {}
+  agent-zero:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      AGENT_ZERO_API_KEY_FILE: /run/secrets/agent_zero_key
+      AUDIT_DIR: /app/audit
+      LITELLM_MASTER_KEY_FILE: /run/secrets/litellm_key
+      LLM_BASE_URL: http://litellm:4000
+      LLM_EMBEDDING_MODEL: openai/morpheus-embedding-model
+      LLM_MODEL: openai/morpheus-main-model
+      LLM_PROVIDER: openai
+      LLM_UTILITY_MODEL: openai/morpheus-utility-model
+      MCP_BASE_URL: http://mcpo:8000
+      MEMORY_DIR: /app/data/memory
+      PYTHONPATH: /app
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: '6333'
+      SSH_KEY_PATH: /run/secrets/ssh_deploy_key
+      SSH_USER: deploy
+      WORK_DIR: /app/work_dir
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:80/')
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
+    image: agent-zero-langgraph:latest
+    labels:
+      homepage.description: Orchestrator for AI Subagents (Coder, Researcher)
+      homepage.group: AI Core
+      homepage.href: https://agent-zero.wazzan.us
+      homepage.icon: agent-zero.png
+      homepage.name: Agent-Zero
+      traefik.enable: 'true'
+      traefik.http.routers.agent-zero-web.entrypoints: web
+      traefik.http.routers.agent-zero-web.rule: Host(`agent-zero.wazzan.us`)
+      traefik.http.routers.agent-zero.entrypoints: websecure
+      traefik.http.routers.agent-zero.rule: Host(`agent-zero.wazzan.us`)
+      traefik.http.routers.agent-zero.tls.certresolver: cloudflare
+      traefik.http.services.agent-zero.loadbalancer.server.port: '80'
+    networks:
+      agent-communication:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 80
+      published: 8501
+      protocol: tcp
+    - mode: ingress
+      target: 8080
+      published: 8081
+      protocol: tcp
+    secrets:
+    - source: litellm_key
+      target: /run/secrets/litellm_key
+    - source: ssh_deploy_key
+      target: /run/secrets/ssh_deploy_key
+    - source: agent_zero_key
+      target: /run/secrets/agent_zero_key
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/agent-zero/data
+      target: /app/data
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/ai/agent-zero/work_dir
+      target: /app/work_dir
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/projects
+      target: /app/projects
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/agents/qwen
+      target: /app/audit
+      bind: {}
+  authentik-server:
+    command:
+    - dumb-init
+    - --
+    - ak
+    - server
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: alwazw
+      AUTHENTIK_REDIS__HOST: redis
+    image: ghcr.io/goauthentik/server:2024.10.1
+    labels:
+      homepage.description: Identity provider and SSO
+      homepage.group: Security
+      homepage.href: https://auth.wazzan.us
+      homepage.icon: authentik.png
+      homepage.name: Authentik
+      traefik.enable: 'true'
+      traefik.http.routers.authentik-web.entrypoints: web
+      traefik.http.routers.authentik-web.rule: Host(`auth.wazzan.us`) || 
+        Host(`app.wazzan.us`)
+      traefik.http.routers.authentik.entrypoints: websecure
+      traefik.http.routers.authentik.rule: Host(`auth.wazzan.us`) || 
+        Host(`app.wazzan.us`)
+      traefik.http.routers.authentik.tls.certresolver: cloudflare
+      traefik.http.services.authentik.loadbalancer.server.port: '9000'
+    networks:
+      database:
+      proxy:
+      security:
+    ports:
+    - mode: ingress
+      target: 9000
+      published: 9000
+      protocol: tcp
+    secrets:
+    - source: authentik_secret
+      target: /run/secrets/authentik_secret
+    - source: redis_password
+      target: /run/secrets/redis_password
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/security/authentik-server/media
+      target: /media
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/security/authentik-server/custom-templates
+      target: /templates
+      bind: {}
+    - type: bind
+      source: 
+        /mnt/d/docker/compose/security/authentik-server/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+  authentik-worker:
+    command:
+    - dumb-init
+    - --
+    - ak
+    - worker
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    image: ghcr.io/goauthentik/server:2024.10.1
+    networks:
+      default:
+  cadvisor:
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    image: gcr.io/cadvisor/cadvisor:latest
+    labels:
+      homepage.description: Container resource monitoring
+      homepage.group: Monitoring
+      homepage.href: https://cadvisor.wazzan.us
+      homepage.icon: docker.png
+      homepage.name: cAdvisor
+      traefik.enable: 'true'
+      traefik.http.routers.cadvisor-web.entrypoints: web
+      traefik.http.routers.cadvisor-web.rule: Host(`cadvisor.wazzan.us`)
+      traefik.http.routers.cadvisor.entrypoints: websecure
+      traefik.http.routers.cadvisor.rule: Host(`cadvisor.wazzan.us`)
+      traefik.http.routers.cadvisor.tls.certresolver: cloudflare
+      traefik.http.services.cadvisor.loadbalancer.server.port: '8080'
+    networks:
+      monitoring:
+      proxy:
+    volumes:
+    - type: bind
+      source: /
+      target: /rootfs
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/run
+      target: /var/run
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /sys
+      target: /sys
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/lib/docker/
+      target: /var/lib/docker
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /dev/disk/
+      target: /dev/disk
+      read_only: true
+      bind: {}
+  cloudflared:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /bin/sh
+    - /entrypoint-wrapper.sh
+    environment:
+      CLOUDFLARED_VERSION: latest
+    image: alpine:latest
+    labels:
+      homepage.description: Cloudflare tunnel for external access
+      homepage.group: Network
+      homepage.href: https://dash.cloudflare.com
+      homepage.icon: cloudflare.png
+      homepage.name: Cloudflare Tunnel
+    networks:
+      proxy:
+    secrets:
+    - source: cf_tunnel_token
+      target: /run/secrets/cf_tunnel_token
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/network/cloudflared/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+    - type: volume
+      source: cloudflared_bin
+      target: /data
+      volume: {}
+  dockge:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      DOCKGE_STACKS_DIR: /opt/stacks
+    image: louislam/dockge:latest
+    labels:
+      homepage.description: Docker Compose management UI
+      homepage.group: Management
+      homepage.href: https://dockge.wazzan.us
+      homepage.icon: dockge.png
+      homepage.name: Dockge
+      traefik.enable: 'true'
+      traefik.http.routers.dockge-web.entrypoints: web
+      traefik.http.routers.dockge-web.rule: Host(`dockge.wazzan.us`)
+      traefik.http.routers.dockge.entrypoints: websecure
+      traefik.http.routers.dockge.rule: Host(`dockge.wazzan.us`)
+      traefik.http.routers.dockge.tls.certresolver: cloudflare
+      traefik.http.services.dockge.loadbalancer.server.port: '5001'
+    networks:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 5001
+      published: 5001
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+    - type: volume
+      source: dockge_data
+      target: /app/data
+      volume: {}
+  dozzle:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    image: amir20/dozzle:latest
+    labels:
+      homepage.description: Real-time Docker log viewer
+      homepage.group: Monitoring
+      homepage.href: https://logs.wazzan.us
+      homepage.icon: dozzle.png
+      homepage.name: Dozzle
+      traefik.enable: 'true'
+      traefik.http.routers.dozzle-web.entrypoints: web
+      traefik.http.routers.dozzle-web.rule: Host(`logs.wazzan.us`)
+      traefik.http.routers.dozzle.entrypoints: websecure
+      traefik.http.routers.dozzle.rule: Host(`logs.wazzan.us`)
+      traefik.http.routers.dozzle.tls.certresolver: cloudflare
+      traefik.http.services.dozzle.loadbalancer.server.port: '8080'
+    networks:
+      proxy:
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+  gitea:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__PASSWD_FILE: /run/secrets/postgres_password
+      GITEA__database__USER: alwazw
+      GITEA__security__SECRET_KEY_FILE: /run/secrets/gitea_secret
+      GITEA__server__DOMAIN: gitea.wazzan.us
+      GITEA__server__HTTP_PORT: '3000'
+      GITEA__server__ROOT_URL: https://gitea.wazzan.us/
+      USER_GID: '1000'
+      USER_UID: '1000'
+    image: gitea/gitea:latest
+    networks:
+      database:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 3000
+      published: 3001
+      protocol: tcp
+    - mode: ingress
+      target: 22
+      published: 2222
+      protocol: tcp
+    secrets:
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+    - source: gitea_secret
+      target: /run/secrets/gitea_secret
+    volumes:
+    - type: volume
+      source: gitea_data
+      target: /data
+      volume: {}
+    - type: bind
+      source: /etc/timezone
+      target: /etc/timezone
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /etc/localtime
+      target: /etc/localtime
+      read_only: true
+      bind: {}
+  grafana:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SERVER_ROOT_URL: https://grafana.wazzan.us
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    image: grafana/grafana:latest
+    networks:
+      monitoring:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 3000
+      published: 3003
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/monitoring/grafana/grafana_data
+      target: /var/lib/grafana
+      bind: {}
+  guacamole:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    image: guacamole/guacamole:latest
+    networks:
+      default:
+  guacd:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    image: guacamole/guacd:latest
+    networks:
+      ai-ml:
+      proxy:
+    volumes:
+    - type: volume
+      source: guacd_drive
+      target: /drive
+      volume: {}
+    - type: volume
+      source: guacd_record
+      target: /record
+      volume: {}
+  hermes-agent:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /agent-entrypoint.sh
+    environment:
+      API_SERVER_ENABLED: 'true'
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: your-super-secret-key-here
+      API_SERVER_PORT: '8642'
+      GATEWAY_ALLOW_ALL_USERS: 'true'
+      HERMES_DASHBOARD_INSECURE: '1'
+      HERMES_GID: '1000'
+      HERMES_HOME: /home/hermes/.hermes
+      HERMES_UID: '1000'
+    healthcheck:
+      test:
+      - CMD
+      - sh
+      - -c
+      - test -f /home/hermes/.hermes/gateway_state.json && python3 -c "import 
+        json; d=json.load(open('/home/hermes/.hermes/gateway_state.json')); 
+        exit(0 if d.get('gateway_state')=='running' else 1)"
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 1m0s
+    image: nousresearch/hermes-agent:latest
+    networks:
+      agent-communication:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 8642
+      published: 8642
+      protocol: tcp
+    secrets:
+    - source: hermes_password
+      target: /run/secrets/hermes_password
+    - source: github_token
+      target: /run/secrets/github_token
+    volumes:
+    - type: volume
+      source: hermes_home
+      target: /home/hermes/.hermes
+      volume: {}
+    - type: volume
+      source: hermes_agent_src
+      target: /opt/hermes
+      volume: {}
+    - type: bind
+      source: /mnt/d/docker
+      target: /mnt/d/docker
+      bind: {}
+    - type: bind
+      source: /
+      target: /host
+      bind: {}
+    - type: bind
+      source: /home/alwazw/.ssh/id_ed25519
+      target: /home/hermes/.ssh/id_ed25519
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /home/alwazw/.ssh/known_hosts
+      target: /home/hermes/.ssh/known_hosts
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /home/alwazw/docker/compose/ai/hermes/agent-entrypoint.sh
+      target: /agent-entrypoint.sh
+      read_only: true
+      bind: {}
+  hermes-webui:
+    command:
+    - /hermeswebui_init.bash
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    image: ghcr.io/nesquena/hermes-webui:latest
+    networks:
+      default:
+  homepage:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: localhost:3004
+      LOG_LEVEL: info
+    image: ghcr.io/gethomepage/homepage:latest
+    labels:
+      homepage.description: Application dashboard
+      homepage.group: Management
+      homepage.href: https://home.wazzan.us
+      homepage.icon: homepage.png
+      homepage.name: Homepage
+      traefik.enable: 'true'
+      traefik.http.routers.homepage-web.entrypoints: web
+      traefik.http.routers.homepage-web.rule: Host(`home.wazzan.us`)
+      traefik.http.routers.homepage.entrypoints: websecure
+      traefik.http.routers.homepage.rule: Host(`home.wazzan.us`)
+      traefik.http.routers.homepage.tls.certresolver: cloudflare
+      traefik.http.services.homepage.loadbalancer.server.port: '3000'
+    networks:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 3000
+      published: 3004
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/management/homepage/config
+      target: /app/config
+      bind: {}
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+  litellm:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    environment:
+      ALIBABA_MODELSTUDIO_KEY_1_FILE: /run/secrets/alibaba_key_1
+      ALIBABA_MODELSTUDIO_KEY_2_FILE: /run/secrets/alibaba_key_2
+      DATABASE_URL_FILE: /run/secrets/litellm_database_url
+      DEBUG: '1'
+      GEMINI_API_KEY_1_FILE: /run/secrets/gemini_key_1
+      GEMINI_API_KEY_2_FILE: /run/secrets/gemini_key_2
+      GEMINI_API_KEY_3_FILE: /run/secrets/gemini_key_3
+      GROQ_API_KEY_1_FILE: /run/secrets/grok_key_1
+      LITELLM_MASTER_KEY_FILE: /run/secrets/litellm_key
+      NOVITA_API_KEY_1_FILE: /run/secrets/novita_key_1
+      NVIDIA_NIM_KEY_1_FILE: /run/secrets/nvidia_nim_key_1
+      OLLAMA_API_BASE: http://ollama:11434
+      OPENROUTER_KEY_1_FILE: /run/secrets/openrouter_key_1
+      OPENROUTER_KEY_2_FILE: /run/secrets/openrouter_key_2
+      OPENROUTER_KEY_3_FILE: /run/secrets/openrouter_key_3
+      STORE_MODEL_IN_DB: 'False'
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; 
+        urllib.request.urlopen('http://localhost:4000/routes', timeout=5)
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 30s
+    image: ghcr.io/berriai/litellm:main-latest
+    labels:
+      homepage.description: LLM Gateway (Routing, Load Balancing, Fallback)
+      homepage.group: AI Core
+      homepage.href: https://litellm.wazzan.us
+      homepage.icon: litellm.png
+      homepage.name: LiteLLM
+      traefik.enable: 'true'
+      traefik.http.routers.litellm-web.entrypoints: web
+      traefik.http.routers.litellm-web.rule: Host(`litellm.wazzan.us`)
+      traefik.http.routers.litellm.entrypoints: websecure
+      traefik.http.routers.litellm.rule: Host(`litellm.wazzan.us`)
+      traefik.http.routers.litellm.tls.certresolver: cloudflare
+      traefik.http.services.litellm.loadbalancer.server.port: '4000'
+    networks:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 4000
+      published: 4000
+      protocol: tcp
+    secrets:
+    - source: litellm_key
+      target: /run/secrets/litellm_key
+    - source: openrouter_key_1
+      target: /run/secrets/openrouter_key_1
+    - source: openrouter_key_2
+      target: /run/secrets/openrouter_key_2
+    - source: openrouter_key_3
+      target: /run/secrets/openrouter_key_3
+    - source: nvidia_nim_key_1
+      target: /run/secrets/nvidia_nim_key_1
+    - source: gemini_key_1
+      target: /run/secrets/gemini_key_1
+    - source: gemini_key_2
+      target: /run/secrets/gemini_key_2
+    - source: gemini_key_3
+      target: /run/secrets/gemini_key_3
+    - source: grok_key_1
+      target: /run/secrets/grok_key_1
+    - source: alibaba_key_1
+      target: /run/secrets/alibaba_key_1
+    - source: alibaba_key_2
+      target: /run/secrets/alibaba_key_2
+    - source: novita_key_1
+      target: /run/secrets/novita_key_1
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/litellm/config
+      target: /app/config
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/ai/litellm/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+  loki:
+    command:
+    - -config.file=/etc/loki/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    image: grafana/loki:latest
+    labels:
+      homepage.description: Log aggregation system
+      homepage.group: Monitoring
+      homepage.href: http://localhost:3100
+      homepage.icon: grafana.png
+      homepage.name: Loki
+    networks:
+      monitoring:
+    ports:
+    - mode: ingress
+      target: 3100
+      published: 3100
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/monitoring/loki/config.yaml
+      target: /etc/loki/config.yaml
+      read_only: true
+      bind: {}
+    - type: volume
+      source: loki_data
+      target: /loki
+      volume: {}
+  mcpo:
+    command:
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    - --config
+    - /app/config.json
+    - --hot-reload
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8000/docs
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 15s
+    image: ghcr.io/open-webui/mcpo:latest
+    labels:
+      homepage.description: MCP-to-OpenAPI Bridge
+      homepage.group: AI Core
+      homepage.href: https://mcpo.wazzan.us/docs
+      homepage.icon: mcpo.png
+      homepage.name: MCPO
+      traefik.enable: 'true'
+      traefik.http.routers.mcpo-web.entrypoints: web
+      traefik.http.routers.mcpo-web.rule: Host(`mcpo.wazzan.us`)
+      traefik.http.routers.mcpo.entrypoints: websecure
+      traefik.http.routers.mcpo.rule: Host(`mcpo.wazzan.us`)
+      traefik.http.routers.mcpo.tls.certresolver: cloudflare
+      traefik.http.services.mcpo.loadbalancer.server.port: '8000'
+    networks:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 8000
+      published: 8000
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/mcpo/config.json
+      target: /app/config.json
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/ai/mcpo/filesystem_server.py
+      target: /app/filesystem_server.py
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/ai/mcpo/git_server.py
+      target: /app/git_server.py
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/projects
+      target: /workspace
+      bind: {}
+  n8n:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    environment:
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/postgres_password
+      DB_POSTGRESDB_PORT: '5432'
+      DB_POSTGRESDB_USER: alwazw
+      DB_TYPE: postgresdb
+      N8N_EDITOR_BASE_URL: https://n8n.wazzan.us/
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_key
+      N8N_HOST: n8n.wazzan.us
+      N8N_PROTOCOL: https
+    image: docker.n8n.io/n8nio/n8n:latest
+    networks:
+      database:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 5678
+      published: 5678
+      protocol: tcp
+    secrets:
+    - source: n8n_key
+      target: /run/secrets/n8n_key
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+    volumes:
+    - type: volume
+      source: n8n_data
+      target: /home/node/.n8n
+      volume: {}
+  ollama:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    healthcheck:
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/localhost/11434
+      interval: 1m0s
+      start_period: 1m0s
+    image: ollama/ollama:latest
+    labels:
+      homepage.description: Local LLM runtime and model serving
+      homepage.group: AI
+      homepage.href: https://ollama.wazzan.us
+      homepage.icon: ollama.png
+      homepage.name: Ollama
+      traefik.enable: 'true'
+      traefik.http.routers.ollama-web.entrypoints: web
+      traefik.http.routers.ollama-web.rule: Host(`ollama.wazzan.us`)
+      traefik.http.routers.ollama.entrypoints: websecure
+      traefik.http.routers.ollama.rule: Host(`ollama.wazzan.us`)
+      traefik.http.routers.ollama.tls.certresolver: cloudflare
+      traefik.http.services.ollama.loadbalancer.server.port: '11434'
+    networks:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 11434
+      published: 11434
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/ollama/models
+      target: /root/.ollama
+      bind: {}
+  omniroute:
+    command:
+    - node
+    - dev/run-standalone.mjs
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    image: diegosouzapw/omniroute:latest
+    networks:
+      default:
+  openwebui:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      ENABLE_OLLAMA_API: 'false'
+      OPENAI_API_BASE_URL: http://host.docker.internal:8642/v1
+      OPENAI_API_KEY: your-super-secret-key-here
+    image: ghcr.io/open-webui/open-webui:main
+    labels:
+      homepage.description: Chat UI for AI agents and LLMs
+      homepage.group: AI
+      homepage.href: https://chat.wazzan.us
+      homepage.icon: open-webui.png
+      homepage.name: OpenWebUI
+      traefik.enable: 'true'
+      traefik.http.routers.openwebui-web.entrypoints: web
+      traefik.http.routers.openwebui-web.rule: Host(`chat.wazzan.us`)
+      traefik.http.routers.openwebui.entrypoints: websecure
+      traefik.http.routers.openwebui.rule: Host(`chat.wazzan.us`)
+      traefik.http.routers.openwebui.tls.certresolver: cloudflare
+      traefik.http.services.openwebui.loadbalancer.server.port: '8080'
+    networks:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 8080
+      published: 3000
+      protocol: tcp
+    secrets:
+    - source: webui_secret_key
+      target: /run/secrets/webui_secret_key
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/openwebui/data
+      target: /app/backend/data
+      bind: {}
+  plane-api:
+    command:
+    - ./bin/docker-entrypoint-api.sh
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    image: makeplane/plane-backend:stable
+    networks:
+      default:
+  plane-web:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    image: makeplane/plane-frontend:stable
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.plane-web-web.entrypoints: web
+      traefik.http.routers.plane-web-web.rule: Host(`plane.wazzan.us`)
+      traefik.http.routers.plane-web.entrypoints: websecure
+      traefik.http.routers.plane-web.rule: Host(`plane.wazzan.us`)
+      traefik.http.routers.plane-web.tls.certresolver: cloudflare
+      traefik.http.services.plane-web.loadbalancer.server.port: '3000'
+    networks:
+      proxy:
+  portainer:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    image: portainer/portainer-ce:latest
+    labels:
+      homepage.description: Docker container management
+      homepage.group: Management
+      homepage.href: https://portainer.wazzan.us
+      homepage.icon: portainer.png
+      homepage.name: Portainer
+      traefik.enable: 'true'
+      traefik.http.routers.portainer-web.entrypoints: web
+      traefik.http.routers.portainer-web.rule: Host(`portainer.wazzan.us`)
+      traefik.http.routers.portainer.entrypoints: websecure
+      traefik.http.routers.portainer.rule: Host(`portainer.wazzan.us`)
+      traefik.http.routers.portainer.tls.certresolver: cloudflare
+      traefik.http.services.portainer.loadbalancer.server.port: '9000'
+    networks:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 9443
+      published: 9443
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+    - type: volume
+      source: portainer_data
+      target: /data
+      volume: {}
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: aef3
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: alwazw
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U alwazw -d aef3 || pg_isready -h localhost -U alwazw -d 
+        aef3
+      timeout: 5s
+      interval: 15s
+      retries: 5
+      start_period: 1m0s
+    image: postgres:16-alpine
+    labels:
+      homepage.description: Primary database
+      homepage.group: Data
+      homepage.icon: postgresql.png
+      homepage.name: PostgreSQL
+    networks:
+      database:
+    ports:
+    - mode: ingress
+      target: 5432
+      published: 5432
+      protocol: tcp
+    secrets:
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/data/postgres/data
+      target: /var/lib/postgresql/data
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/data/postgres/init
+      target: /docker-entrypoint-initdb.d
+      read_only: true
+      bind: {}
+  prometheus:
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --storage.tsdb.retention.time=30d
+    - --web.console.libraries=/etc/prometheus/console_libraries
+    - --web.console.templates=/etc/prometheus/consoles
+    - --web.enable-lifecycle
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --spider
+      - -q
+      - http://localhost:9090/-/healthy
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+    image: prom/prometheus:latest
+    labels:
+      homepage.description: Metrics collection and alerting
+      homepage.group: Monitoring
+      homepage.href: http://localhost:9090
+      homepage.icon: prometheus.png
+      homepage.name: Prometheus
+    networks:
+      monitoring:
+    ports:
+    - mode: ingress
+      target: 9090
+      published: 9090
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/monitoring/prometheus/data
+      target: /prometheus
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/monitoring/prometheus/config
+      target: /etc/prometheus
+      bind: {}
+  promtail:
+    command:
+    - -config.file=/etc/promtail/config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    image: grafana/promtail:latest
+    networks:
+      monitoring:
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/monitoring/promtail/config.yaml
+      target: /etc/promtail/config.yaml
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/lib/docker/containers
+      target: /var/lib/docker/containers
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+  qdrant:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    healthcheck:
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/localhost/6333
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 15s
+    image: qdrant/qdrant:latest
+    labels:
+      homepage.description: Vector Database for embeddings
+      homepage.group: AI
+      homepage.href: https://qdrant.wazzan.us/dashboard
+      homepage.icon: qdrant.png
+      homepage.name: Qdrant
+      traefik.enable: 'true'
+      traefik.http.routers.qdrant-web.entrypoints: web
+      traefik.http.routers.qdrant-web.rule: Host(`qdrant.wazzan.us`)
+      traefik.http.routers.qdrant.entrypoints: websecure
+      traefik.http.routers.qdrant.rule: Host(`qdrant.wazzan.us`)
+      traefik.http.routers.qdrant.tls.certresolver: cloudflare
+      traefik.http.services.qdrant.loadbalancer.server.port: '6333'
+    networks:
+      ai-ml:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 6333
+      published: 6333
+      protocol: tcp
+    volumes:
+    - type: volume
+      source: qdrant_data
+      target: /qdrant/storage
+      volume: {}
+  redis:
+    command:
+    - sh
+    - -c
+    - "redis-server \\\n  --requirepass \"$$(cat /run/secrets/redis_password)\" \\\
+      \n  --appendonly yes\n"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    healthcheck:
+      test:
+      - CMD
+      - sh
+      - -c
+      - redis-cli -a $$(cat /run/secrets/redis_password) ping
+      interval: 30s
+    image: redis:7-alpine
+    labels:
+      homepage.description: In-memory data store and cache
+      homepage.group: Data
+      homepage.icon: redis.png
+      homepage.name: Redis
+    networks:
+      database:
+    ports:
+    - mode: ingress
+      target: 6379
+      published: 6379
+      protocol: tcp
+    secrets:
+    - source: redis_password
+      target: /run/secrets/redis_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/data/redis/data
+      target: /data
+      bind: {}
+  searxng:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET_KEY_FILE: /run/secrets/webui_secret_key
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --spider
+      - -q
+      - http://localhost:8080/healthz
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 15s
+    image: searxng/searxng:latest
+    labels:
+      homepage.description: Privacy-respecting metasearch
+      homepage.group: AI
+      homepage.href: https://search.wazzan.us
+      homepage.icon: searxng.png
+      homepage.name: SearXNG
+      traefik.enable: 'true'
+      traefik.http.routers.searxng-web.entrypoints: web
+      traefik.http.routers.searxng-web.rule: Host(`search.wazzan.us`)
+      traefik.http.routers.searxng.entrypoints: websecure
+      traefik.http.routers.searxng.rule: Host(`search.wazzan.us`)
+      traefik.http.routers.searxng.tls.certresolver: cloudflare
+      traefik.http.services.searxng.loadbalancer.server.port: '8080'
+    networks:
+      ai-ml:
+      proxy:
+    secrets:
+    - source: webui_secret_key
+      target: /run/secrets/webui_secret_key
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/searxng/settings.yml
+      target: /etc/searxng/settings.yml
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/ai/searxng/limiter.toml
+      target: /etc/searxng/limiter.toml
+      read_only: true
+      bind: {}
+  traefik:
+    command:
+    - --api.dashboard=true
+    - --api.insecure=false
+    - --ping=true
+    - --ping.entrypoint=ping
+    - --entrypoints.ping.address=:8080
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --providers.docker.network=proxy
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    - --entrypoints.websecure.http.tls=true
+    - --certificatesresolvers.cloudflare.acme.dnschallenge=true
+    - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+    - --certificatesresolvers.cloudflare.acme.email=wafic@wazzan.us
+    - --certificatesresolvers.cloudflare.acme.storage=/data/acme.json
+    - --log.level=INFO
+    - --accesslog=true
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    entrypoint:
+    - /entrypoint-wrapper.sh
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --spider
+      - -q
+      - http://localhost:8080/ping
+      interval: 30s
+    image: traefik:latest
+    labels:
+      homepage.group: Network
+      homepage.href: https://traefik.wazzan.us
+      homepage.icon: traefik.png
+      homepage.name: Traefik
+      traefik.enable: 'true'
+      traefik.http.routers.traefik-web.entrypoints: web
+      traefik.http.routers.traefik-web.rule: Host(`traefik.wazzan.us`)
+      traefik.http.routers.traefik.entrypoints: websecure
+      traefik.http.routers.traefik.rule: Host(`traefik.wazzan.us`)
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.routers.traefik.tls.certresolver: cloudflare
+    networks:
+      proxy:
+    ports:
+    - mode: ingress
+      target: 80
+      published: 80
+      protocol: tcp
+    - mode: ingress
+      target: 443
+      published: 443
+      protocol: tcp
+    - mode: ingress
+      target: 8080
+      published: 8080
+      protocol: tcp
+    secrets:
+    - source: cf_api_email
+      target: /run/secrets/cf_api_email
+    - source: cf_dns_api_token
+      target: /run/secrets/cf_dns_api_token
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/network/traefik/data
+      target: /data
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/network/traefik/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+  uptime-kuma:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - -s
+      - http://localhost:3001/api/entry-page
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: louislam/uptime-kuma:latest
+    labels:
+      homepage.description: Uptime monitoring and status pages
+      homepage.group: Monitoring
+      homepage.href: http://localhost:3002
+      homepage.icon: uptime-kuma.png
+      homepage.name: Uptime Kuma
+    networks:
+      monitoring:
+    ports:
+    - mode: ingress
+      target: 3001
+      published: 3002
+      protocol: tcp
+    volumes:
+    - type: volume
+      source: uptime_kuma_data
+      target: /app/data
+      volume: {}
+  vaultwarden:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '1073741824'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 2m0s
+      placement:
+        constraints:
+        - node.hostname == 22f5c60863ac
+    environment:
+      ADMIN_TOKEN_FILE: /run/secrets/vw_admin_token
+      DOMAIN: https://vault.yourdomain.com
+      SIGNUPS_ALLOWED: 'true'
+      WEBSOCKET_ENABLED: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:80/alive
+      timeout: 5s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+    image: vaultwarden/server:latest
+    labels:
+      homepage.description: Password/Passkey Manager
+      homepage.group: Security
+      homepage.href: https://vault.wazzan.us
+      homepage.icon: vaultwarden.png
+      homepage.name: Vaultwarden
+      traefik.enable: 'true'
+      traefik.http.routers.vaultwarden-web.entrypoints: web
+      traefik.http.routers.vaultwarden-web.rule: Host(`vault.wazzan.us`)
+      traefik.http.routers.vaultwarden-ws-web.entrypoints: web
+      traefik.http.routers.vaultwarden-ws-web.rule: Host(`vault.wazzan.us`) && 
+        Path(`/notifications/hub`)
+      traefik.http.routers.vaultwarden-ws.entrypoints: websecure
+      traefik.http.routers.vaultwarden-ws.rule: Host(`vault.wazzan.us`) && 
+        Path(`/notifications/hub`)
+      traefik.http.routers.vaultwarden-ws.service: vaultwarden
+      traefik.http.routers.vaultwarden-ws.tls.certresolver: cloudflare
+      traefik.http.routers.vaultwarden.entrypoints: websecure
+      traefik.http.routers.vaultwarden.rule: Host(`vault.wazzan.us`)
+      traefik.http.routers.vaultwarden.tls.certresolver: cloudflare
+      traefik.http.services.vaultwarden.loadbalancer.server.port: '80'
+    networks:
+      proxy:
+      security:
+    ports:
+    - mode: ingress
+      target: 80
+      published: 8082
+      protocol: tcp
+    secrets:
+    - source: vw_admin_token
+      target: /run/secrets/vw_admin_token
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/security/vaultwarden/data
+      target: /data
+      bind: {}
+networks:
+  agent-communication:
+    name: docker_agent-communication
+    driver: overlay
+    attachable: true
+  ai-ml:
+    name: docker_ai-ml
+    driver: overlay
+    attachable: true
+  database:
+    name: docker_database
+    driver: overlay
+    attachable: true
+  default:
+    name: docker_default
+  monitoring:
+    name: docker_monitoring
+    driver: overlay
+    attachable: true
+  proxy:
+    name: docker_proxy
+    driver: overlay
+    attachable: true
+  security:
+    name: docker_security
+    driver: overlay
+    attachable: true
+volumes:
+  affine_data:
+    name: docker_affine_data
+  cloudflared_bin:
+    name: docker_cloudflared_bin
+  dockge_data:
+    name: docker_dockge_data
+  gitea_data:
+    name: docker_gitea_data
+  guacd_drive:
+    name: docker_guacd_drive
+  guacd_record:
+    name: docker_guacd_record
+  hermes_agent_src:
+    name: docker_hermes_agent_src
+  hermes_home:
+    name: docker_hermes_home
+  loki_data:
+    name: docker_loki_data
+  n8n_data:
+    name: docker_n8n_data
+  portainer_data:
+    name: docker_portainer_data
+  qdrant_data:
+    name: docker_qdrant_data
+  uptime_kuma_data:
+    name: docker_uptime_kuma_data
+secrets:
+  agent_zero_key:
+    name: docker_agent_zero_key
+    file: /home/alwazw/docker/secrets/agent_zero_key.txt
+  alibaba_key_1:
+    name: docker_alibaba_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/alibaba_key_1.txt
+  alibaba_key_2:
+    name: docker_alibaba_key_2
+    file: /home/alwazw/docker/secrets/external_llm_keys/alibaba_key_2.txt
+  authentik_secret:
+    name: docker_authentik_secret
+    file: /home/alwazw/docker/secrets/authentik_secret.txt
+  cf_api_email:
+    name: docker_cf_api_email
+    file: /home/alwazw/docker/secrets/cf_api_email.txt
+  cf_dns_api_token:
+    name: docker_cf_dns_api_token
+    file: /home/alwazw/docker/secrets/cf_dns_api_token.txt
+  cf_tunnel_token:
+    name: docker_cf_tunnel_token
+    file: /home/alwazw/docker/secrets/cf_tunnel_token.txt
+  gemini_key_1:
+    name: docker_gemini_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/gemini_key_1.txt
+  gemini_key_2:
+    name: docker_gemini_key_2
+    file: /home/alwazw/docker/secrets/external_llm_keys/gemini_key_2.txt
+  gemini_key_3:
+    name: docker_gemini_key_3
+    file: /home/alwazw/docker/secrets/external_llm_keys/gemini_key_3.txt
+  gitea_secret:
+    name: docker_gitea_secret
+    file: /home/alwazw/docker/secrets/gitea_secret.txt
+  github_token:
+    name: docker_github_token
+    file: /home/alwazw/docker/secrets/github_token.txt
+  grok_key_1:
+    name: docker_grok_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/grok_key_1.txt
+  hermes_password:
+    name: docker_hermes_password
+    file: /home/alwazw/docker/secrets/hermes_password.txt
+  litellm_key:
+    name: docker_litellm_key
+    file: /home/alwazw/docker/secrets/litellm_key.txt
+  n8n_key:
+    name: docker_n8n_key
+    file: /home/alwazw/docker/secrets/n8n_key.txt
+  novita_key_1:
+    name: docker_novita_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/novita_key_1.txt
+  nvidia_nim_key_1:
+    name: docker_nvidia_nim_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/nvidia_nim_key_1.txt
+  openrouter_key_1:
+    name: docker_openrouter_key_1
+    file: /home/alwazw/docker/secrets/external_llm_keys/openrouter_key_1.txt
+  openrouter_key_2:
+    name: docker_openrouter_key_2
+    file: /home/alwazw/docker/secrets/external_llm_keys/openrouter_key_2.txt
+  openrouter_key_3:
+    name: docker_openrouter_key_3
+    file: /home/alwazw/docker/secrets/external_llm_keys/openrouter_key_3.txt
+  postgres_password:
+    name: docker_postgres_password
+    file: /home/alwazw/docker/secrets/postgres_password.txt
+  redis_password:
+    name: docker_redis_password
+    file: /home/alwazw/docker/secrets/redis_password.txt
+  ssh_deploy_key:
+    name: docker_ssh_deploy_key
+    file: /home/alwazw/docker/secrets/ssh_deploy_key
+  vw_admin_token:
+    name: docker_vw_admin_token
+    file: /home/alwazw/docker/secrets/vw_admin_token.txt
+  webui_secret_key:
+    name: docker_webui_secret_key
+    file: /home/alwazw/docker/secrets/open_web_ui.txt

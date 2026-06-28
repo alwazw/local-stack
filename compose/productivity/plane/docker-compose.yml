@@ -44,3 +44,16 @@ services:
     profiles: [productivity]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["./bin/docker-entrypoint-api.sh"]
+    environment:
+      WEB_URL: "http://plane.${DOMAIN}"
+      CORS_ALLOWED_ORIGINS: "http://plane.${DOMAIN}"
+    volumes:
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    networks:
+      - proxy
+      - database
+      - productivity
+    secrets:
+      - plane_database_url
+      - plane_redis_url
+      - plane_secret_key

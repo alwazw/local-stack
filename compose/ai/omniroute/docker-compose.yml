@@ -17,5 +17,12 @@ services:
     profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["node", "dev/run-standalone.mjs"]
+    volumes:
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    networks:
+      - ai-ml
+      - proxy
+    secrets:
+      - redis_password
 
 

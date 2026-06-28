@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IN="stack-merged.cleaned.yml"
+OUT="stack-merged.pinned.yml"
+HOST="$(hostname)"
+
+# Use yq (portable) if available; fallback to a Python one-liner if not.
+if command -v yq >/dev/null 2>&1; then
+  cp "$IN" "$OUT"
+  # For each service that has a bind mount, add placement constraint
+  yq -N eval '
+    .services |= with_entries(
+      .value as $svc |
+      if ($svc.volumes // [] | any(. == "*") or ($svc.volumes // [] | any(. == "*"))) then
+        .value.deploy.placement.constraints = ["node.hostname == env(HOST)"]
+      else
+        .
+      end
+    )
+  ' --env HOST="$HOST" "$IN" > "$OUT"
+  echo "Pinned file written to $OUT (using yq)"
+else
+  # Python fallback (requires ruamel.yaml; we used docker earlier to run it)
+  docker run --rm -v "$PWD":/work -w /work python:3.12-slim bash -lc "\
+    pip install --no-cache-dir ruamel.yaml >/dev/null && \
+    python3 - <<'PY'
+import sys
+from ruamel.yaml import YAML
+yaml=YAML()
+yaml.preserve_quotes=True
+doc=yaml.load(open('stack-merged.cleaned.yml'))
+host='${HOST}'
+for name,svc in (doc.get('services') or {}).items():
+    vols=svc.get('volumes') or []
+    has_bind=False
+    for v in vols:
+        if isinstance(v, dict):
+            if v.get('type')=='bind' or 'bind' in v:
+                has_bind=True
+        elif isinstance(v,str):
+            if ':' in v and (v.split(':',1)[0].startswith('/') or v.split(':',1)[0].startswith('~')):
+                has_bind=True
+    if has_bind:
+        deploy=svc.setdefault('deploy',{})
+        placement=deploy.setdefault('placement',{})
+        placement['constraints']=['node.hostname == '+host]
+yaml.dump(doc, open('stack-merged.pinned.yml','w'))
+print('Pinned file written to stack-merged.pinned.yml')
+PY"
+fi

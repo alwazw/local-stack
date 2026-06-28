@@ -17,4 +17,20 @@ services:
     profiles: [security]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["dumb-init", "--", "ak", "worker"]
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+    volumes:
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+      - ./media:/media
+      - ./custom-templates:/templates
+    networks:
+      - database
+      - security
+    secrets:
+      - authentik_secret
+      - redis_password
+      - postgres_password
 

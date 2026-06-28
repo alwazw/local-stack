@@ -84,6 +84,15 @@ services:
 #    profiles: [ai]
     entrypoint: ["/entrypoint-wrapper.sh"]
     command: ["/hermeswebui_init.bash"]
+    environment:
+      HERMES_API_URL: "http://hermes-agent:8642"
+    volumes:
+      - ./entrypoint-wrapper.sh:/entrypoint-wrapper.sh:ro
+    secrets:
+      - hermes_password
+    networks:
+      - proxy
+      - ai-ml
 
 
 volumes:

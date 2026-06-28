@@ -1,0 +1,952 @@
+alwazw@inspiron-15:~/docker$ # show networks with that name
+docker network ls --filter name=docker_database
+
+# inspect details (driver, containers, scope)
+docker network inspect docker_database
+NETWORK ID     NAME              DRIVER    SCOPE
+wszk84ivm2te   docker_database   overlay   swarm
+[
+    {
+        "Name": "docker_database",
+        "Id": "wszk84ivm2te6ogdhfrfh190r",
+        "Created": "2026-06-26T17:48:27.875909183-04:00",
+        "Scope": "swarm",
+        "Driver": "overlay",
+        "EnableIPv4": true,
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "10.0.6.0/24",
+                    "Gateway": "10.0.6.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": true,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Options": {
+            "com.docker.network.driver.overlay.vxlanid_list": "4102"
+        },
+        "Labels": {
+            "com.docker.stack.namespace": "aef3"
+        },
+        "Peers": [
+            {
+                "Name": "b9c0139fd917",
+                "IP": "172.19.136.93"
+            }
+        ],
+        "Containers": {
+            "792c8e74d858a85e55162e25264552b1c34c67ba4370fe4f5c70bca6232d595e": {
+                "Name": "aef3_gitea.1.nog0y6bajfu11r7omjc45y1si",
+                "EndpointID": "c01a666649c0ca726b54038241b7186acb466d1efee1ce748349cabc2a2b09cc",
+                "MacAddress": "02:42:0a:00:06:06",
+                "IPv4Address": "10.0.6.6/24",
+                "IPv6Address": ""
+            },
+            "acf51c14299621df02ff1caac5423f17f7fcd68bf516c3116fb951649d6049e0": {
+                "Name": "aef3_postgres.1.xtf4w3zv4uiwagz3ptiek66ex",
+                "EndpointID": "017a4751510b3d7d4cc339bfbfcc20e331c4525404a1dc8e5db9f3bf7bb0d243",
+                "MacAddress": "02:42:0a:00:06:04",
+                "IPv4Address": "10.0.6.4/24",
+                "IPv6Address": ""
+            },
+            "c3ad15ea04b8a498ae08c2a640821f730adbff1b5feb121741d4536c07d9d285": {
+                "Name": "aef3_redis.1.wk6mol6965ru5sin406s3zuxo",
+                "EndpointID": "0d7ad825fe05187e9854cb0dfbf9d1b7cddeeaf82b9a626c161ccf0204da31c9",
+                "MacAddress": "02:42:0a:00:06:08",
+                "IPv4Address": "10.0.6.8/24",
+                "IPv6Address": ""
+            },
+            "lb-docker_database": {
+                "Name": "docker_database-endpoint",
+                "EndpointID": "401fd3786cfc1e07c13558db0aeb571afaf6fb39e662178a06d20a624c922739",
+                "MacAddress": "02:42:0a:00:06:0a",
+                "IPv4Address": "10.0.6.10/24",
+                "IPv6Address": ""
+            }
+        },
+        "Status": {
+            "IPAM": {
+                "Subnets": {
+                    "10.0.6.0/24": {
+                        "IPsInUse": 13,
+                        "DynamicIPsAvailable": 243
+                    }
+                }
+            }
+        }
+    }
+]
+alwazw@inspiron-15:~/docker$ # remove the network (will fail if containers are attached)
+docker network rm docker_database
+Error response from daemon: rpc error: code = FailedPrecondition desc = network wszk84ivm2te6ogdhfrfh190r is in use by service kau1bejk09s2ugdet2hwee0vj
+exit status 1
+alwazw@inspiron-15:~/docker$ docker network ls
+NETWORK ID     NAME                         DRIVER    SCOPE
+096a898e9528   agent-communication          bridge    local
+586861e16860   ai-ml                        bridge    local
+3ff2248d15be   bridge                       bridge    local
+de20eff2cade   database                     bridge    local
+7tgnvn4xo7fh   docker_agent-communication   overlay   swarm
+smsnd76gk5ky   docker_ai-ml                 overlay   swarm
+wszk84ivm2te   docker_database              overlay   swarm
+btgs0o1d2peu   docker_default               overlay   swarm
+a5984a76c292   docker_gwbridge              bridge    local
+pvls0mledm62   docker_monitoring            overlay   swarm
+r0djitb9zbcd   docker_proxy                 overlay   swarm
+lj549md4p9g8   docker_security              overlay   swarm
+9ba627e1baef   host                         host      local
+a7mbxnb6khaj   ingress                      overlay   swarm
+417645e93eba   monitoring                   bridge    local
+d15b6f1a292e   none                         null      local
+8d521cce4a61   proxy                        bridge    local
+48eb24c43b70   security                     bridge    local
+alwazw@inspiron-15:~/docker$ docker network rm wszk84ivm2te
+Error response from daemon: rpc error: code = FailedPrecondition desc = network wszk84ivm2te6ogdhfrfh190r is in use by service kau1bejk09s2ugdet2hwee0vj
+exit status 1
+alwazw@inspiron-15:~/docker$ docker network rm -f  wszk84ivm2te
+Error response from daemon: rpc error: code = FailedPrecondition desc = network wszk84ivm2te6ogdhfrfh190r is in use by service kau1bejk09s2ugdet2hwee0vj
+exit status 1
+alwazw@inspiron-15:~/docker$ dcd
+alwazw@inspiron-15:~/docker$ dcd
+alwazw@inspiron-15:~/docker$ docker network rm -f  wszk84ivm2te
+Error response from daemon: rpc error: code = FailedPrecondition desc = network wszk84ivm2te6ogdhfrfh190r is in use by service kau1bejk09s2ugdet2hwee0vj
+exit status 1
+alwazw@inspiron-15:~/docker$ dps
+Mapping Active Container Topology...
+
+CONTAINER ID   NAMES                                                               CREATED AT                      STATUS                      PORTS
+070ba560f3e3   aef3_guacamole.1.padyjwxy8ksi6lyyydzzfc9ml                          2026-06-26 17:54:16 -0400 EDT   Up 40 hours                 8080/tcp
+62c4048ec4a0   aef3_omniroute.1.bt8ggaosffpdbvw788e9bxzw6                          2026-06-26 17:52:44 -0400 EDT   Created
+6c95dd071ed5   aef3_omniroute.1.jhuu3rq8dt8yght7r9ocfdmut                          2026-06-26 17:52:33 -0400 EDT   Created
+acf51c142996   aef3_postgres.1.xtf4w3zv4uiwagz3ptiek66ex                           2026-06-26 17:52:27 -0400 EDT   Up 40 hours (healthy)       5432/tcp
+3bf98a7c21b3   aef3_omniroute.1.9bphlmctluyroddlsjya09ge5                          2026-06-26 17:52:21 -0400 EDT   Created
+d7f73229551d   aef3_omniroute.1.treou28596hvf02w89bk3i5b9                          2026-06-26 17:52:20 -0400 EDT   Created
+13d5fdf9904a   aef3_agent-zero.1.j9ae401p94c98awajuqi52s4n                         2026-06-26 17:48:33 -0400 EDT   Exited (0) 40 hours ago
+80da7b1bb0c2   aef3_mcpo.1.4gz6hz2f5l9maw2aa77jxhp64                               2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       8000/tcp
+dc8a8123a4c7   aef3_openwebui.1.qywuftxacodqkq3j8pqhnpbxb                          2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       8080/tcp
+fba020e78938   aef3_qdrant.1.i03go55xjq47hi5m5goc3owkg                             2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       6333-6334/tcp
+e36c634d10a8   aef3_uptime-kuma.1.uj5q4mgl2bh9mesrvj8q6fhi6                        2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       3001/tcp
+9e1215b6d5fb   aef3_loki.1.cwcblio1z1whaj0xv978p9o95                               2026-06-26 17:48:29 -0400 EDT   Up 40 hours                 3100/tcp
+efe48a7affad   aef3_prometheus.1.s1vmoukxft8fktlp8hn9wgmf0                         2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       9090/tcp
+ca5ea0a9678b   aef3_searxng.1.57j5ehupu0hqmtpr5iwmkryzg                            2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       8080/tcp
+dbd9c8619689   aef3_promtail.1.q9t7u217e697mwi6d5q1pw59h                           2026-06-26 17:48:29 -0400 EDT   Up 40 hours
+dc9853e5f84b   aef3_cadvisor.16fdmde5tfkpg77e2rdc5aqbw.l1y3kp8yjk381nkpjczla04az   2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       8080/tcp
+1344f8016149   aef3_guacd.1.db6lllpjsjknw6gc9re6y336z                              2026-06-26 17:48:29 -0400 EDT   Up 40 hours (healthy)       4822/tcp
+c3ad15ea04b8   aef3_redis.1.wk6mol6965ru5sin406s3zuxo                              2026-06-26 17:48:28 -0400 EDT   Up 40 hours (healthy)       6379/tcp
+9da67cbce992   aef3_portainer.1.kko0j5amsyqjz6khuhfax19al                          2026-06-26 17:48:28 -0400 EDT   Up 40 hours                 8000/tcp, 9000/tcp, 9443/tcp
+11fdef067595   aef3_traefik.1.vk6x40eo9gfott58chr3djmai                            2026-06-26 17:48:28 -0400 EDT   Up 40 hours (healthy)       80/tcp
+4f329317e890   aef3_cloudflared.1.m30tiaad2x24jyfpidjjx856l                        2026-06-26 17:48:28 -0400 EDT   Up 40 hours
+96790be99948   aef3_dockge.1.j0gvbcld49x8sm6c548ianws6                             2026-06-26 17:48:28 -0400 EDT   Up 40 hours (healthy)       5001/tcp
+2ff5c7294ffd   aef3_plane-web.1.h3e18ky9fnn52pf4dri297ytt                          2026-06-26 17:48:28 -0400 EDT   Up 40 hours (healthy)       80/tcp, 3000/tcp
+792c8e74d858   aef3_gitea.1.nog0y6bajfu11r7omjc45y1si                              2026-06-26 17:48:28 -0400 EDT   Up 40 hours                 22/tcp, 3000/tcp
+465184dac858   aef3_dozzle.1.75q91mk2uixvxxlhruuvep57e                             2026-06-26 17:48:28 -0400 EDT   Up 40 hours                 8080/tcp
+618b68766efa   aef3_homepage.1.1uu1r04gsz9q3kqyzynq20yw9                           2026-06-26 17:48:28 -0400 EDT   Up 40 hours (healthy)       3000/tcp
+c768f0dcaffa   aef3_hermes-webui.1.5xcr0fn9ik01lv4svfini4k36                       2026-06-26 17:44:54 -0400 EDT   Created
+9ded5e083602   aef3_hermes-webui.1.txssw3thjnvxdq6b3wgtsi4s2                       2026-06-26 17:44:43 -0400 EDT   Created
+7f87b0cc4669   aef3_hermes-webui.1.mxfthwu1e62nbci0066uk704k                       2026-06-26 17:44:32 -0400 EDT   Created
+7648a5adb7a0   aef3_hermes-webui.1.4am59shrjgixjwm9p1yu6cmjn                       2026-06-26 17:44:31 -0400 EDT   Created
+efb63aa85bfd   aef3_gitea.1.y3h70o0h54xvvgjw1tyoh4c9n                              2026-06-26 17:41:47 -0400 EDT   Exited (255) 40 hours ago   22/tcp, 3000/tcp
+4cab80148d78   aef3_portainer.1.8uvidsfh3hhjot4yulk6tdu5u                          2026-06-26 17:41:18 -0400 EDT   Exited (255) 40 hours ago   8000/tcp, 9000/tcp, 9443/tcp
+2baaee315b03   aef3_dozzle.1.jo7vit6s7m5rrtkt4kwy52l61                             2026-06-26 17:39:02 -0400 EDT   Exited (255) 40 hours ago   8080/tcp
+c4a90bfdf90e   aef3_redis.1.1efduktgoqz4m4tkebhwr615n                              2026-06-26 17:38:44 -0400 EDT   Exited (255) 40 hours ago   6379/tcp
+360f356e6738   aef3_affine.1.o5wy5jkhxibbt9y28ram94zzh                             2026-06-26 17:37:48 -0400 EDT   Exited (1) 40 hours ago
+b70903f7cfa7   aef3_affine.1.n8k41pkfaq9jnrzb0pdgmk3gs                             2026-06-26 17:37:19 -0400 EDT   Exited (1) 40 hours ago
+fb1f24e58b50   aef3_affine.1.0d9cf5g2nua6sed3mylgwlodq                             2026-06-26 17:36:50 -0400 EDT   Exited (1) 40 hours ago
+7f1d8dd6d174   aef3_promtail.1.0b4s4f76mr8yx7srclra14z21                           2026-06-26 17:36:33 -0400 EDT   Exited (255) 40 hours ago
+a895e9923ff2   aef3_affine.1.i42arficm7n32p3pzv0se86bg                             2026-06-26 17:36:32 -0400 EDT   Exited (1) 40 hours ago
+1a4119b94d72   aef3_dockge.1.lgz8mgld9yq4zcj2l1y2j511r                             2026-06-26 17:36:29 -0400 EDT   Exited (255) 40 hours ago   5001/tcp
+676fa19781c8   aef3_plane-web.1.qc2ka6cjst48c17e7dgjz06f7                          2026-06-26 17:36:27 -0400 EDT   Exited (255) 40 hours ago   80/tcp, 3000/tcp
+63fc7792fc82   aef3_qdrant.1.kpfnnaijlrsc5oee4atbgrlq1                             2026-06-26 17:36:22 -0400 EDT   Exited (255) 40 hours ago   6333-6334/tcp
+065b9b1b4126   aef3_openwebui.1.g0fg1s73yf287i1k9t0fvw3a1                          2026-06-26 17:36:19 -0400 EDT   Exited (255) 40 hours ago   8080/tcp
+bee1e51d14f9   aef3_uptime-kuma.1.vpeh5xxk7aq2dddqjicjne9cm                        2026-06-26 17:36:15 -0400 EDT   Exited (255) 40 hours ago   3001/tcp
+777ebf0ef2dd   aef3_authentik-worker.1.orgh0aihn67hyup7fxabt41i3                   2026-06-26 17:36:12 -0400 EDT   Created
+91a09fd89867   aef3_guacd.1.3rhl1fyg18yfa13l84h2s95k2                              2026-06-26 17:36:07 -0400 EDT   Exited (255) 40 hours ago   4822/tcp
+28e637ba3d25   aef3_cloudflared.1.dot71ewq39dfjca4dc5ci3bka                        2026-06-26 17:36:05 -0400 EDT   Exited (255) 40 hours ago
+7552a967633a   aef3_mcpo.1.f3v0swkt49z3moeybtdw1q42n                               2026-06-26 17:36:03 -0400 EDT   Exited (255) 40 hours ago   8000/tcp
+214d076e108d   aef3_authentik-worker.1.lzaigt1l0xlzsidl06b2pfgda                   2026-06-26 17:36:02 -0400 EDT   Created
+38bdaaf4b791   aef3_homepage.1.41b6ib3vb3ga4x1se95c25jla                           2026-06-26 17:35:59 -0400 EDT   Exited (255) 40 hours ago   3000/tcp
+f6c6d22b855e   aef3_plane-api.1.mc7k1o4fnyf9lmh82jr4j0k0c                          2026-06-26 17:35:59 -0400 EDT   Created
+ad56458455a3   aef3_authentik-worker.1.arlj2jglvbgbqg6eaxs4dg388                   2026-06-26 17:35:51 -0400 EDT   Created
+16e5e2c54448   aef3_authentik-worker.1.ubd11rdua6s666n4aaztqcewb                   2026-06-26 17:35:50 -0400 EDT   Created
+841e1e8aaf5d   aef3_agent-zero.1.basysbi5mwig56is1icex4w9e                         2026-06-26 17:35:49 -0400 EDT   Exited (255) 40 hours ago   22/tcp, 80/tcp, 9000-9009/tcp
+4639547d9ab7   aef3_plane-api.1.q55tsybtlyh7wzz7zznai32c5                          2026-06-26 17:35:48 -0400 EDT   Created
+9b8fa9d2100a   aef3_plane-api.1.x87whrlty3nlywq2dyu2mjbk5                          2026-06-26 17:35:38 -0400 EDT   Created
+286ce9b5ba85   aef3_plane-api.1.ixgqkbsym24n9tewarjwy7pib                          2026-06-26 17:35:37 -0400 EDT   Created
+dae03401a5d1   aef3_authentik-server.1.n68p5gxwllrdqwoe4041u7v3v                   2026-06-26 17:35:19 -0400 EDT   Exited (0) 40 hours ago
+7ef5a8a25020   aef3_redis.1.0s4qx8tjz7jafhlsno2xadtu5                              2026-06-26 17:35:17 -0400 EDT   Exited (255) 40 hours ago   6379/tcp
+95af3739643c   aef3_cadvisor.16fdmde5tfkpg77e2rdc5aqbw.k8o946mlfxsz2oxajuak0oc01   2026-06-26 17:35:14 -0400 EDT   Exited (255) 40 hours ago   8080/tcp
+c590f1b59c8a   aef3_vaultwarden.1.tud7oqedbdxohs5475j5bcs3r                        2026-06-26 17:35:12 -0400 EDT   Exited (0) 40 hours ago
+alwazw@inspiron-15:~/docker$ rmdps
+rmdps: command not found
+alwazw@inspiron-15:~/docker$ dpsrm
+dpsrm: command not found
+alwazw@inspiron-15:~/docker$ ls ~/
+total 212
+drwxr-x--- 14 alwazw alwazw  4096 Jun 28 09:01 ./
+drwxr-xr-x  3 root   root    4096 Jun 13 02:25 ../
+-rw-------  1 alwazw alwazw   171 Jun 26 13:24 .Xauthority
+-rw-r--r--  1 alwazw alwazw 22177 Jun 19 11:11 .bash_aliases_pro
+-rw-------  1 alwazw docker 50389 Jun 26 17:43 .bash_history
+-rw-r--r--  1 alwazw alwazw   220 Jun 13 02:25 .bash_logout
+-rw-r--r--  1 alwazw alwazw  4142 Jun 13 08:13 .bashrc
+drwx------  4 alwazw alwazw  4096 Jun 14 22:00 .cache/
+drwx------  4 alwazw alwazw  4096 Jun 21 19:09 .config/
+drwx------  3 alwazw alwazw  4096 Jun 14 18:32 .docker/
+drwxr-xr-x  4 alwazw alwazw  4096 Jun 14 22:01 .gemini/
+-rw-r--r--  1 alwazw alwazw    47 Jun 14 20:45 .gitconfig
+drwxr-xr-x  2 alwazw alwazw  4096 Jun 14 10:51 .landscape/
+-rw-------  1 alwazw alwazw    20 Jun 28 09:01 .lesshst
+drwx------  5 alwazw alwazw  4096 Jun 14 18:26 .local/
+-rw-rw-r--  1 alwazw alwazw     0 Jun 26 13:24 .motd_shown
+drwxr-xr-x  4 alwazw alwazw  4096 Jun 13 08:13 .npm/
+drwxr-xr-x  8 alwazw alwazw  4096 Jun 13 08:13 .nvm/
+-rw-r--r--  1 alwazw alwazw   807 Jun 13 02:25 .profile
+drwxr-xr-x 10 alwazw alwazw  4096 Jun 26 18:34 .qwen/
+drwx------  2 alwazw alwazw  4096 Jun 18 02:34 .ssh/
+-rw-r--r--  1 alwazw alwazw     0 Jun 13 02:27 .sudo_as_admin_successful
+drwxr-xr-x  2 alwazw alwazw  4096 Jun 18 11:34 .terraform.d/
+-rw-r--r--  1 alwazw alwazw   181 Jun 16 10:49 .wget-hsts
+lrwxrwxrwx  1 alwazw docker    13 Jun 13 02:40 docker -> /mnt/d/docker/
+-rwxr-xr-x  1 alwazw alwazw  6485 Jun 14 20:19 dps2.sh*
+-rw-r--r--  1 alwazw alwazw 34223 Jun 19 12:07 log.log
+drwxr-xr-x  6 alwazw alwazw  4096 Jun 13 02:26 ubuntu-customz/
+alwazw@inspiron-15:~/docker$ cat .wszk84ivm2te
+cat: .wszk84ivm2te: No such file or directory
+alwazw@inspiron-15:~/docker$ cat .bash_aliases_pro
+cat: .bash_aliases_pro: No such file or directory
+alwazw@inspiron-15:~/docker$ cat ~/.bash_aliases_pro
+# ==============================================================================
+# 🛠️ SYNCHED AUTOMATED DESKTOP PROFILE (DYNAMICALLY COMPILED - DO NOT EDIT)
+# Engine Matrix Version: 2026.4
+# Generated: Sat Jun 13 02:32:47 EDT 2026
+# Source Core: /home/alwazw/ubuntu-customz
+# ==============================================================================
+
+# --- HARDCODED RUNTIME TRANSLATIONS ---
+alias update='sys_update'
+alias fix='sys_update'
+alias clean='sys_update'
+alias install='apt_install'
+alias reboot='sudo reboot'
+alias shutdown='sudo shutdown -h now'
+alias sctl='sudo systemctl'
+alias s-status='sudo systemctl status'
+alias s-start='sudo systemctl start'
+alias s-stop='sudo systemctl stop'
+alias s-restart='sudo systemctl restart'
+alias s-logs='sudo journalctl -xeu'
+alias rm='rm -I'
+alias cp='cp -i'
+alias mv='mv -i'
+alias chmod='sudo chmod'
+alias chown='sudo chown'
+alias kill='sudo kill -9'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias cls='clear'
+alias ls='ls -alF --color=auto'
+alias ll='ls -alF'
+alias la='ls -A --color=auto'
+alias lr='ls -R'
+alias l='ls -CF --color=auto'
+alias tree='tree -L 1 -laC'
+alias tree2='tree -L 2 -laC'
+alias tree3='tree -L 3 -laC'
+alias grep='grep --color=auto'
+alias myip='curl -s ifconfig.me && echo'
+alias ports='ss -tulnp'
+alias ip='ip a'
+alias route='mtr'
+alias ping='ping -c 5'
+alias ufw='sudo ufw'
+alias dcup='docker compose up -d'
+alias dcd='docker compose down'
+alias dcup-env='docker compose --env-file .env -d'
+alias dcup-env-secrets='docker compose --env-file .env --env-file .secrets up -d'
+alias dcup-ai='docker compose -f ai-stack.yml up -d'
+alias dcd-ai='docker compose -f ai-stack.yml down'
+alias dlogs='docker logs -f'
+alias dexec='docker exec -it'
+alias dimg='docker images'
+alias dnet='docker network ls'
+alias nanod='nano docker-compose.yml'
+alias catd='cat docker-compose.yml'
+alias rm-dps='echo "Stopping & removing all containers..." && docker rm -f $(docker ps -aq)'
+alias rm-dimg='echo "Removing all images..." && docker rmi -f $(docker images -aq)'
+alias zj='zellij'
+alias zja='zellij attach'
+alias mup='zellij options --default-layout compact'
+alias open='xdg-open'
+alias df='df -h'
+alias free='free -h'
+
+# --- INTEGRATED ORCHESTRATION FUNCTIONS ---
+# ============================================================================
+# Useful Functions
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# ---- System Maintenance ----
+# ----------------------------------------------------------------------------
+
+## system update
+sys_update() {
+    echo "--- 🛠️  Fixing broken packages"
+    sudo dpkg --configure -a
+    sudo apt install -f -y
+    echo "--- 📦 Updating repository information"
+    sudo apt update
+    echo "--- 🚀 Performing full upgrade (includes kernel)"
+    sudo apt full-upgrade -y
+    if command -v flatpak &>/dev/null; then
+        echo "--- 📦 Updating Flatpak packages"
+        flatpak update -y
+    fi
+    echo "--- 🧹 Cleaning up"
+    sudo apt autoremove -y && sudo apt autoclean
+    echo "✅ System maintenance complete"
+}
+
+## install
+apt_install() {
+    sudo apt update && sudo apt install -y "$@"
+}
+
+
+# ----------------------------------------------------------------------------
+# ---- Networking ----
+# ----------------------------------------------------------------------------
+
+## ipa
+ipa() {
+    for NIC in $(ls /sys/class/net | grep -v -E "lo|docker|veth|br-|virbr"); do
+    # Get software and hardware states
+    STATUS1=$(ip -brief link show "$NIC" | awk '{print $2}')
+    STATUS2=$(cat /sys/class/net/"$NIC"/operstate | tr '[:lower:]' '[:upper:]')
+
+    # Get IP address (if any)
+    IP=$(ip -brief addr show "$NIC" | awk '{print $3}' | head -n 1)
+    [ -z "$IP" ] && IP="NO-IP"
+
+    # Colorize Status 1 (Admin)
+    [ "$STATUS1" = "UP" ] && S1="\e[32mUP\e[0m" || S1="\e[31mDOWN\e[0m"
+
+    # Colorize Status 2 (Operational)
+    [ "$STATUS2" = "UP" ] && S2="\e[32mUP\e[0m" || S2="\e[31mDOWN\e[0m"
+
+    # Print the line
+    echo -e "$NIC\t $S1\t $S2\t$IP"
+done
+}
+
+
+## ipb
+ipb() {
+    local G='\033[0;32m' R='\033[0;31m' Y='\033[1;33m' C='\033[1;36m' NC='\033[0m'
+    local B='\033[1m'
+    for nic in $(ls /sys/class/net | grep -vE 'lo|veth|fw|docker|br-|vmbr|bonding'); do
+        [[ ! -d "/sys/class/net/$nic" ]] && continue
+        local status=$(cat "/sys/class/net/$nic/operstate" 2>/dev/null || echo "unknown")
+        local mac=$(cat "/sys/class/net/$nic/address" 2>/dev/null)
+        local bridge=$(ip link show "$nic" | grep -oP 'master \K[^ ]+')
+        local ip_line=$(ip -4 -br addr show dev "${bridge:-$nic}" 2>/dev/null)
+        local ip_addr=$(echo "$ip_line" | awk '{print $3}' | head -n1)
+        local gw=$(ip route show default dev "${bridge:-$nic}" 2>/dev/null | awk '{print $3}')
+
+        local dstat=$([ "$status" = "up" ] && echo "${G}up" || echo "${R}down")
+        local ip_disp=$([ -z "$ip_addr" ] && echo "${R}unassigned" || echo "${C}$ip_addr${NC}")
+        echo -e "\n${B}$nic ${dstat}${NC}"
+        echo -e "  MAC: $mac"
+        echo -e "  IP : $ip_disp"
+        echo -e "  GW : ${gw:-none}"
+    done
+    echo
+}
+
+
+# ----------------------------------------------------------------------------
+# ---- Python ----
+# ----------------------------------------------------------------------------
+
+## venv
+venv() {
+    local VENV_DIR=".venv"
+    if [[ "$1" == "clean" || "$1" == "--clean" ]]; then
+        if [[ -n "$VIRTUAL_ENV" ]]; then deactivate; fi
+        rm -rf "$VENV_DIR"
+        echo "🗑️  Removed $VENV_DIR"
+        return
+    fi
+    if [[ ! -d "$VENV_DIR" ]]; then
+        echo "🚀 Creating virtual environment in $VENV_DIR"
+        python3 -m venv "$VENV_DIR"
+    fi
+    source "$VENV_DIR/bin/activate"
+    if [[ -f requirements.txt ]]; then
+        echo "📦 Installing Python dependencies"
+        pip install --upgrade pip && pip install -r requirements.txt
+    fi
+}
+
+
+# ----------------------------------------------------------------------------
+# ---- Utilities ----
+# ----------------------------------------------------------------------------
+
+## nanob
+nanob() { nano ~/.custom_bashrc && source ~/.custom_bashrc; }
+
+# ---- SMART SEARCH (THE "TREE-GREP" REQUEST) ---
+# Usage: search "filename_pattern"
+search() {
+    if [ -z "$1" ]; then
+        echo "Usage: search <pattern>"
+        return 1
+    fi
+    # Use 'tree' with pattern matching and color
+    # -P: pattern, -f: full path, --prune: hide empty dirs
+    tree -f -P "*$1*" --prune --color
+}
+
+
+# ----------------------------------------------------------------------------
+# ---- Navigation & Listing ----
+# ----------------------------------------------------------------------------
+
+## Custom CD override
+cd() {
+    builtin cd "$@" && ls -alF --color=auto;
+}
+
+
+# ----------------------------------------------------------------------------
+# ---- Docker ----
+# ----------------------------------------------------------------------------
+
+dps() {
+    # 1. Define ANSI Color Codes
+    local CYAN='\033[0;36m'
+    local GREEN='\033[1;32m'
+    local RED='\033[1;31m'
+    local YELLOW='\033[0;33m'
+    local NC='\033[0m' # No Color
+
+    # 2. Define the structural Go template format for Docker
+    local FORMAT="table {{.ID}}\t{{.Names}}\t{{.CreatedAt}}\t{{.Status}}\t{{.Ports}}"
+
+    echo -e "${CYAN}Mapping Active Container Topology...${NC}\n"
+
+    # 3. Execute Docker ps, clean up port strings, and inject conditional coloring
+    docker ps -a --format "$FORMAT" | awk -v grn="$GREEN" -v red="$RED" -v yel="$YELLOW" -v nc="$NC" '
+    NR==1 { print; next } # Print the table header untouched
+    {
+        # Clean up the chaotic multi-ip port bindings string
+        # Replaces "0.0.0.0:80->80/tcp, [::]:80->80/tcp" with a clean "80->80/tcp"
+        gsub(/[0-9.]+:|\[::\]:/, "", $NF);
+
+        # Look at the Status column fields to determine runtime health color
+        if ($0 ~ /Up [0-9]+/) {
+            # Container is actively running smoothly
+            match($0, /Up [^\t]+/);
+            status=substr($0, RSTART, RLENGTH);
+            gsub(status, grn status nc);
+        } else if ($0 ~ /Exited \([0-9]+\)/) {
+            # Container has dropped offline or broken
+            match($0, /Exited \([0-9]+\) [^\t]+/);
+            status=substr($0, RSTART, RLENGTH);
+            gsub(status, red status nc);
+        } else {
+            # Container is in an intermediate state (e.g. Created, Restarting)
+            match($0, /(Created|Restarting) [^\t]+/);
+            status=substr($0, RSTART, RLENGTH);
+            gsub(status, yel status nc);
+        }
+        print;
+    }' | column -t -s $'\t' # Use system tab-stops to keep tables perfectly justified
+}
+
+###############
+
+
+
+dps2() {
+    # 1. Define ANSI Color Codes
+    local CYAN='\033[0;36m'
+    local GREEN='\033[1;32m'
+    local RED='\033[1;31m'
+    local YELLOW='\033[0;33m'
+    local NC='\033[0m'
+    local FAINT='\033[2m'
+
+    # Handle Runtime CLI Filtering Arguments (e.g., dps up, dps down)
+    local FILTER_ARG=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+
+    local FORMAT='{"id":"{{.ID}}","name":"{{.Names}}","created":"{{.CreatedAt}}","status":"{{.Status}}","ports":"{{.Ports}}"}'
+
+    echo -e "${CYAN}Analyzing Complete Deployment Topology (Active & Terminated)...${NC}\n"
+
+    # Master Layout Header Block
+    printf "%-14s %-18s %-18s %-14s %-12s %-16s %-20s %s\n" \
+        "CONTAINER ID" "NAMES" "CREATED AT" "STATE" "HEALTH" "DURATION" "BASE URL" "PORTS"
+
+    docker ps -a --format "$FORMAT" | awk -v grn="$GREEN" -v red="$RED" -v yel="$YELLOW" -v fnt="$FAINT" -v nc="$NC" -v filter="$FILTER_ARG" '
+    BEGIN {
+        # Initialize running tally buckets for the structural footer summary
+        up_count = 0;
+        down_count = 0;
+        failed_count = 0;
+        displayed_count = 0;
+    }
+    {
+        # --- 1. EXTRACT JSON ATTRIBUTES ---
+        match($0, /"id":"[^"]*"/); id = substr($0, RSTART+6, RLENGTH-7);
+        match($0, /"name":"[^"]*"/); name = substr($0, RSTART+8, RLENGTH-9);
+        match($0, /"created":"[^"]*"/); created = substr($0, RSTART+11, RLENGTH-12);
+        match($0, /"status":"[^"]*"/); status_raw = substr($0, RSTART+10, RLENGTH-11);
+        match($0, /"ports":"[^"]*"/); ports_raw = substr($0, RSTART+9, RLENGTH-10);
+
+        # --- 2. CLEAN CREATED AT DATE ---
+        split(created, date_parts, " ");
+        created_clean = date_parts[1] " " substr(date_parts[2], 1, 5);
+
+        # --- 3. PARSE STATUS METRICS & INCREMENT TALLIES ---
+        if (status_raw ~ /^Up/) {
+            state_raw = "UP"; state_word = grn state_raw nc;
+            up_count++;
+            is_up = 1; is_failed = 0;
+        } else if (status_raw ~ /Exited \(0\)/) {
+            state_raw = "DOWN"; state_word = red state_raw nc;
+            down_count++;
+            is_up = 0; is_failed = 0;
+        } else if (status_raw ~ /Exited \([1-9][0-9]*\)/) {
+            state_raw = "DOWN FAILED"; state_word = red state_raw nc;
+            failed_count++;
+            is_up = 0; is_failed = 1;
+        } else {
+            state_raw = "PENDING"; state_word = yel state_raw nc;
+            is_up = 0; is_failed = 0;
+        }
+
+        if (status_raw ~ /\(healthy\)/) {
+            health_raw = "HEALTHY"; health_word = grn health_raw nc;
+        } else if (status_raw ~ /\(unhealthy\)/) {
+            health_raw = "UNHEALTHY"; health_word = red health_raw nc;
+        } else if (status_raw ~ /\(health: starting\)/) {
+            health_raw = "STARTING"; health_word = yel health_raw nc;
+        } else {
+            health_raw = ""; health_word = "";
+        }
+
+        t_str = status_raw;
+        gsub(/^Up |^Exited \([0-9]+\) /, "", t_str);
+        gsub(/ \(healthy\)|\(unhealthy\)|\(health: starting\)/, "", t_str);
+        duration = t_str;
+
+        # --- 4. EVALUATE FILTER ARGUMENTS ---
+        if (filter == "up" && !is_up) next;
+        if (filter == "down" && is_up) next;
+        if (filter == "failed" && !is_failed) next;
+
+        displayed_count++;
+
+        # --- 5. MAP BASE URL NETWORK TOPOLOGY ---
+        base_url = "localhost";
+        if (name ~ /traefik/)          base_url = "domain.com";
+        else if (name ~ /vaultwarden/) base_url = "://domain.com";
+        else if (name ~ /openwebui/)   base_url = "://domain.com";
+        else if (name ~ /authentik/)   base_url = "://domain.com";
+
+        # --- 6. NORMALIZE & DEDUPLICATE PORTS ---
+        port_count = 0;
+        delete port_arr;
+        delete seen_ports;
+
+        if (ports_raw != "") {
+            n_ports = split(ports_raw, raw_arr, ", ");
+            for (i = 1; i <= n_ports; i++) {
+                p = raw_arr[i];
+                proto = "TCP";
+                if (p ~ /\/udp/) proto = "UDP";
+
+                if (p ~ /->/) {
+                    gsub(/[0-9.]+:|\[::\]:/, "", p);
+                    match(p, /[0-9]+/);
+                    host_port = substr(p, RSTART, RLENGTH);
+
+                    if (host_port != "") {
+                        port_str = proto ": " host_port;
+                        if (!seen_ports[port_str]++) {
+                            port_count++;
+                            port_arr[port_count] = port_str;
+                        }
+                    }
+                } else {
+                    match(p, /[0-9]+/);
+                    container_port = substr(p, RSTART, RLENGTH);
+                    if (container_port != "") {
+                        port_str = proto ": " container_port;
+                        if (!seen_ports[port_str]++) {
+                            port_count++;
+                            port_arr[port_count] = port_str;
+                        }
+                    }
+                }
+            }
+        }
+
+        # --- 7. PRINT BALANCED ROW DATA ---
+        state_pad  = 14 + (length(state_word) - length(state_raw));
+        health_pad = 12 + (length(health_word) - length(health_raw));
+
+        first_port = (port_count > 0) ? port_arr[1] : "";
+
+        printf "%-14s %-18s %-18s %-"state_pad"s %-"health_pad"s %-16s %-20s %s\n", \
+            id, name, created_clean, state_word, health_word, duration, base_url, first_port;
+
+        if (port_count > 1) {
+            for (j = 2; j <= port_count; j++) {
+                printf "%-14s %-18s %-18s %-14s %-12s %-16s %-20s %s\n", \
+                    "", "", "", "", "", "", "", port_arr[j];
+            }
+        }
+
+        # --- 8. INJECT EXTENDED 130-CHARACTER SEPARATOR ---
+        printf "%s----------------------------------------------------------------------------------------------------------------------------------\n%s", fnt, nc;
+    }
+    END {
+        # --- 9. RENDER STRUCTURAL FOOTER METRICS ---
+        printf "\n%s[ SYSTEM ENGINE SUMMARY ]%s\n", yel, nc;
+        printf "Total Discovered: %-4d | ", (up_count + down_count + failed_count);
+        printf "Active (%sUP%s): %-4d | ", grn, nc, up_count;
+        printf "Stopped (%sDOWN%s): %-4d | ", red, nc, down_count;
+        printf "Crashed (%sFAILED%s): %-4d\n", red, nc, failed_count;
+
+        if (filter != "") {
+            printf "%sActive Filter Applied: \"%s\" (%d records displayed)%s\n", yel, filter, displayed_count, nc;
+        }
+    }'
+}
+
+
+
+
+
+dps3() {
+    # 1. Define ANSI Color Codes
+    local CYAN='\033[0;36m'
+    local GREEN='\033[1;32m'
+    local RED='\033[1;31m'
+    local YELLOW='\033[0;33m'
+    local NC='\033[0m'
+    local FAINT='\033[2m'
+
+    # Handle Runtime CLI Filtering Arguments (e.g., dps up, dps down)
+    local FILTER_ARG=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+
+    local FORMAT='{"id":"{{.ID}}","name":"{{.Names}}","created":"{{.CreatedAt}}","status":"{{.Status}}","ports":"{{.Ports}}"}'
+
+    echo -e "${CYAN}Analyzing Complete Deployment Topology (Active & Terminated)...${NC}\n"
+
+    # Master Layout Header Block
+    printf "%-14s %-18s %-18s %-14s %-12s %-16s %-20s %s\n" \
+        "CONTAINER ID" "NAMES" "CREATED AT" "STATE" "HEALTH" "DURATION" "BASE URL" "PORTS"
+
+    # Added '--sort name' to natively sort containers alphabetically before formatting
+    docker ps -a --sort name --format "$FORMAT" | awk -v grn="$GREEN" -v red="$RED" -v yel="$YELLOW" -v fnt="$FAINT" -v nc="$NC" -v filter="$FILTER_ARG" '
+    BEGIN {
+        # Initialize running tally buckets for the structural footer summary
+        up_count = 0;
+        down_count = 0;
+        failed_count = 0;
+        displayed_count = 0;
+    }
+    {
+        # --- 1. EXTRACT JSON ATTRIBUTES ---
+        match($0, /"id":"[^"]*"/); id = substr($0, RSTART+6, RLENGTH-7);
+        match($0, /"name":"[^"]*"/); name = substr($0, RSTART+8, RLENGTH-9);
+        match($0, /"created":"[^"]*"/); created = substr($0, RSTART+11, RLENGTH-12);
+        match($0, /"status":"[^"]*"/); status_raw = substr($0, RSTART+10, RLENGTH-11);
+        match($0, /"ports":"[^"]*"/); ports_raw = substr($0, RSTART+9, RLENGTH-10);
+
+        # --- 2. CLEAN CREATED AT DATE ---
+        split(created, date_parts, " ");
+        created_clean = date_parts[1] " " substr(date_parts[2], 1, 5);
+
+        # --- 3. PARSE STATUS METRICS & INCREMENT TALLIES ---
+        if (status_raw ~ /^Up/) {
+            state_raw = "UP"; state_word = grn state_raw nc;
+            up_count++;
+            is_up = 1; is_failed = 0;
+        } else if (status_raw ~ /Exited \(0\)/) {
+            state_raw = "DOWN"; state_word = red state_raw nc;
+            down_count++;
+            is_up = 0; is_failed = 0;
+        } else if (status_raw ~ /Exited \([1-9][0-9]*\)/) {
+            state_raw = "DOWN FAILED"; state_word = red state_raw nc;
+            failed_count++;
+            is_up = 0; is_failed = 1;
+        } else {
+            state_raw = "PENDING"; state_word = yel state_raw nc;
+            is_up = 0; is_failed = 0;
+        }
+
+        if (status_raw ~ /\(healthy\)/) {
+            health_raw = "HEALTHY"; health_word = grn health_raw nc;
+        } else if (status_raw ~ /\(unhealthy\)/) {
+            health_raw = "UNHEALTHY"; health_word = red health_raw nc;
+        } else if (status_raw ~ /\(health: starting\)/) {
+            health_raw = "STARTING"; health_word = yel health_raw nc;
+        } else {
+            health_raw = ""; health_word = "";
+        }
+
+        t_str = status_raw;
+        gsub(/^Up |^Exited \([0-9]+\) /, "", t_str);
+        gsub(/ \(healthy\)|\(unhealthy\)|\(health: starting\)/, "", t_str);
+        duration = t_str;
+
+        # --- 4. EVALUATE FILTER ARGUMENTS ---
+        if (filter == "up" && !is_up) next;
+        if (filter == "down" && is_up) next;
+        if (filter == "failed" && !is_failed) next;
+
+        displayed_count++;
+
+        # --- 5. MAP BASE URL NETWORK TOPOLOGY ---
+        base_url = "localhost";
+        if (name ~ /traefik/)          base_url = "domain.com";
+        else if (name ~ /vaultwarden/) base_url = "://domain.com";
+        else if (name ~ /openwebui/)   base_url = "://domain.com";
+        else if (name ~ /authentik/)   base_url = "://domain.com";
+
+        # --- 6. NORMALIZE & DEDUPLICATE PORTS ---
+        port_count = 0;
+        delete port_arr;
+        delete seen_ports;
+
+        if (ports_raw != "") {
+            n_ports = split(ports_raw, raw_arr, ", ");
+            for (i = 1; i <= n_ports; i++) {
+                p = raw_arr[i];
+                proto = "TCP";
+                if (p ~ /\/udp/) proto = "UDP";
+
+                if (p ~ /->/) {
+                    gsub(/[0-9.]+:|\[::\]:/, "", p);
+                    match(p, /[0-9]+/);
+                    host_port = substr(p, RSTART, RLENGTH);
+
+                    if (host_port != "") {
+                        port_str = proto ": " host_port;
+                        if (!seen_ports[port_str]++) {
+                            port_count++;
+                            port_arr[port_count] = port_str;
+                        }
+                    }
+                } else {
+                    match(p, /[0-9]+/);
+                    container_port = substr(p, RSTART, RLENGTH);
+                    if (container_port != "") {
+                        port_str = proto ": " container_port;
+                        if (!seen_ports[port_str]++) {
+                            port_count++;
+                            port_arr[port_count] = port_str;
+                        }
+                    }
+                }
+            }
+        }
+
+        # --- 7. PRINT BALANCED ROW DATA ---
+        state_pad  = 14 + (length(state_word) - length(state_raw));
+        health_pad = 12 + (length(health_word) - length(health_raw));
+
+        first_port = (port_count > 0) ? port_arr[1] : "";
+
+        printf "%-14s %-18s %-18s %-"state_pad"s %-"health_pad"s %-16s %-20s %s\n", \
+            id, name, created_clean, state_word, health_word, duration, base_url, first_port;
+
+        if (port_count > 1) {
+            for (j = 2; j <= port_count; j++) {
+                printf "%-14s %-18s %-18s %-14s %-12s %-16s %-20s %s\n", \
+                    "", "", "", "", "", "", "", port_arr[j];
+            }
+        }
+
+        # --- 8. INJECT EXTENDED 130-CHARACTER SEPARATOR ---
+        printf "%s----------------------------------------------------------------------------------------------------------------------------------\n%s", fnt, nc;
+    }
+    END {
+        # --- 9. RENDER STRUCTURAL FOOTER METRICS ---
+        printf "\n%s[ SYSTEM ENGINE SUMMARY ]%s\n", yel, nc;
+        printf "Total Discovered: %-4d | ", (up_count + down_count + failed_count);
+        printf "Active (%sUP%s): %-4d | ", grn, nc, up_count;
+        printf "Stopped (%sDOWN%s): %-4d | ", red, nc, down_count;
+        printf "Crashed (%sFAILED%s): %-4d\n", red, nc, failed_count;
+
+        if (filter != "") {
+            printf "%sActive Filter Applied: \"%s\" (%d records displayed)%s\n", yel, filter, displayed_count, nc;
+        }
+    }'
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ----------------------------------------------------------------------------
+
+# ---- Cheat Sheet ----
+# ---- Zellij Multiplexer ----
+# ---- File Safety ----
+# ---- Navigation & Listing ----
+
+
+# ---- Tree Utilities ----
+# ---- Grep ----
+
+# ----------------------------------------------------------------------------
+alwazw@inspiron-15:~/docker$  rm-dps='echo
+>
+> ^C
+alwazw@inspiron-15:~/docker$  rm-dps
+Stopping & removing all containers...
+070ba560f3e3
+62c4048ec4a0
+6c95dd071ed5
+acf51c142996
+3bf98a7c21b3
+d7f73229551d
+13d5fdf9904a
+80da7b1bb0c2
+dc8a8123a4c7
+fba020e78938
+e36c634d10a8
+9e1215b6d5fb
+efe48a7affad
+ca5ea0a9678b
+dbd9c8619689
+dc9853e5f84b
+1344f8016149
+c3ad15ea04b8
+9da67cbce992
+11fdef067595
+4f329317e890
+96790be99948
+2ff5c7294ffd
+792c8e74d858
+465184dac858
+618b68766efa
+c768f0dcaffa
+9ded5e083602
+7f87b0cc4669
+7648a5adb7a0
+efb63aa85bfd
+4cab80148d78
+2baaee315b03
+c4a90bfdf90e
+360f356e6738
+b70903f7cfa7
+fb1f24e58b50
+7f1d8dd6d174
+a895e9923ff2
+1a4119b94d72
+676fa19781c8
+63fc7792fc82
+065b9b1b4126
+bee1e51d14f9
+777ebf0ef2dd
+91a09fd89867
+28e637ba3d25
+7552a967633a
+214d076e108d
+38bdaaf4b791
+f6c6d22b855e
+ad56458455a3
+16e5e2c54448
+841e1e8aaf5d
+4639547d9ab7
+9b8fa9d2100a
+286ce9b5ba85
+dae03401a5d1
+7ef5a8a25020
+95af3739643c
+c590f1b59c8a
+alwazw@inspiron-15:~/docker$ docker stack deploy -c stack-merged.cleaned.nowarn.yml local-stack
+Since --detach=false was not specified, tasks will be created in the background.
+In a future release, --detach=false will become the default.
+Creating network docker_security
+failed to create network docker_security: Error response from daemon: network with name docker_security already exists
+alwazw@inspiron-15:~/docker$ dps2
+Analyzing Complete Deployment Topology (Active & Terminated)...
+
+CONTAINER ID   NAMES              CREATED AT         STATE          HEALTH       DURATION         BASE URL             PORTS
+4838e0d155ff   aef3_qdrant.1.fdfum8om448qjpiiwd2bq0z0e 2026-06-28 09:32   UP             STARTING     4 seconds        localhost            TCP: 6333
+----------------------------------------------------------------------------------------------------------------------------------
+cac3a61a6a8a   aef3_openwebui.1.xd2xcmluethbgz5219j9om5ie 2026-06-28 09:32   UP             STARTING     5 seconds        ://domain.com        TCP: 8080
+----------------------------------------------------------------------------------------------------------------------------------
+3289f0570c48   aef3_mcpo.1.ligs0g6zh4s7gs7kq6mpgcva5 2026-06-28 09:32   UP             STARTING     5 seconds        localhost            TCP: 8000
+----------------------------------------------------------------------------------------------------------------------------------
+73fb29018021   aef3_guacamole.1.8qcprebkbxz8k4lwnquilik5h 2026-06-28 09:32   UP                          10 seconds       localhost            TCP: 8080
+----------------------------------------------------------------------------------------------------------------------------------
+02eb37e6d85c   aef3_gitea.1.l9ko3sq4myzc19tezyoph0e45 2026-06-28 09:32   UP                          5 seconds        localhost            TCP: 22
+                                                                                                                       TCP: 3000
+----------------------------------------------------------------------------------------------------------------------------------
+2e2ba6e49e72   aef3_redis.1.paz00vsxkrtwu28oshdscpmuf 2026-06-28 09:32   UP             STARTING     2 seconds        localhost            TCP: 6379
+----------------------------------------------------------------------------------------------------------------------------------
+087daf22fffd   aef3_homepage.1.fan39vha1r67b2fq5cs2c80k3 2026-06-28 09:32   UP             STARTING     6 seconds        localhost            TCP: 3000
+----------------------------------------------------------------------------------------------------------------------------------
+8a2552fd49a3   aef3_cadvisor.16fdmde5tfkpg77e2rdc5aqbw.3kxpuwmol4vuwcdp83rktxvr8 2026-06-28 09:32   UP             STARTING     6 seconds        localhost            TCP: 8080
+----------------------------------------------------------------------------------------------------------------------------------
+e58f13429b09   aef3_guacd.1.w0hi9iu9po6mlptdae91dz572 2026-06-28 09:32   UP             STARTING     5 seconds        localhost            TCP: 4822
+----------------------------------------------------------------------------------------------------------------------------------
+928611d47cd9   aef3_postgres.1.qudi9ln2rd3vhkc5yx6dhkxcc 2026-06-28 09:32   UP             STARTING     2 seconds        localhost            TCP: 5432
+----------------------------------------------------------------------------------------------------------------------------------
+a11bb65559cf   aef3_dockge.1.x185wt4mtci0p33gwb71fq8i8 2026-06-28 09:32   UP             STARTING     7 seconds        localhost            TCP: 5001
+----------------------------------------------------------------------------------------------------------------------------------
+f61a43ebc619   aef3_searxng.1.r3gul7yy3higatq3yioz0bpdb 2026-06-28 09:32   UP             STARTING     7 seconds        localhost            TCP: 8080
+----------------------------------------------------------------------------------------------------------------------------------
+6d0bb3feac39   aef3_prometheus.1.o24j71cwog5gfevq6jhphk0yb 2026-06-28 09:32   UP             STARTING     7 seconds        localhost            TCP: 9090
+----------------------------------------------------------------------------------------------------------------------------------
+ed7c526f5c80   aef3_traefik.1.7daq04a6n3gkeahg6e2be2m5b 2026-06-28 09:32   UP             STARTING     8 seconds        domain.com           TCP: 80
+----------------------------------------------------------------------------------------------------------------------------------
+45b4661311b8   aef3_plane-web.1.1ohdw3t77bitmilooif3dwjpv 2026-06-28 09:32   UP             HEALTHY      8 seconds        localhost            TCP: 80
+                                                                                                                       TCP: 3000
+----------------------------------------------------------------------------------------------------------------------------------
+ad7ed44cdc31   aef3_portainer.1.fetp8wc0ursgzc1nxfdsqknah 2026-06-28 09:32   UP                          8 seconds        localhost            TCP: 8000
+                                                                                                                       TCP: 9000
+                                                                                                                       TCP: 9443
+----------------------------------------------------------------------------------------------------------------------------------
+470c4a25f9c3   aef3_loki.1.aen5s4sv1e7pqckn4py525usx 2026-06-28 09:32   UP                          8 seconds        localhost            TCP: 3100
+----------------------------------------------------------------------------------------------------------------------------------
+c25a708d1a33   aef3_cloudflared.1.6461pyrwmprb3pihhpzadprkh 2026-06-28 09:32   UP                          8 seconds        localhost
+----------------------------------------------------------------------------------------------------------------------------------
+4f9511d9cfe7   aef3_uptime-kuma.1.bsanpk85xxtkyxamke2i5bi6l 2026-06-28 09:32   UP             HEALTHY      8 seconds        localhost            TCP: 3001
+----------------------------------------------------------------------------------------------------------------------------------
+846e48ea19d1   aef3_promtail.1.io81mrz2j9ui6cl8l7tuxc5nu 2026-06-28 09:32   UP                          8 seconds        localhost
+----------------------------------------------------------------------------------------------------------------------------------
+7e17577a9321   aef3_dozzle.1.i0h4h2myfgbirnfmwy0j4t80j 2026-06-28 09:32   UP                          11 seconds       localhost            TCP: 8080
+----------------------------------------------------------------------------------------------------------------------------------
+
+[ SYSTEM ENGINE SUMMARY ]
+Total Discovered: 21   | Active (UP): 21   | Stopped (DOWN): 0    | Crashed (FAILED): 0
+alwazw@inspiron-15:~/docker$
