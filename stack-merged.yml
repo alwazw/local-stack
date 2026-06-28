@@ -225,10 +225,37 @@ services:
         window: 2m0s
     entrypoint:
     - /entrypoint-wrapper.sh
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: alwazw
+      AUTHENTIK_REDIS__HOST: redis
     image: ghcr.io/goauthentik/server:2024.10.1
     networks:
-      default: null
+      database: null
+      security: null
     restart: unless-stopped
+    secrets:
+    - source: authentik_secret
+      target: /run/secrets/authentik_secret
+    - source: redis_password
+      target: /run/secrets/redis_password
+    - source: postgres_password
+      target: /run/secrets/postgres_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/security/authentik-worker/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/security/authentik-worker/media
+      target: /media
+      bind: {}
+    - type: bind
+      source: /mnt/d/docker/compose/security/authentik-worker/custom-templates
+      target: /templates
+      bind: {}
   cadvisor:
     cap_add:
     - ALL
@@ -642,10 +669,22 @@ services:
         - node.role == manager
     entrypoint:
     - /entrypoint-wrapper.sh
+    environment:
+      HERMES_API_URL: http://hermes-agent:8642
     image: ghcr.io/nesquena/hermes-webui:latest
     networks:
-      default: null
+      ai-ml: null
+      proxy: null
     restart: unless-stopped
+    secrets:
+    - source: hermes_password
+      target: /run/secrets/hermes_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/hermes/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
   homepage:
     deploy:
       resources:
@@ -1008,8 +1047,18 @@ services:
     - /entrypoint-wrapper.sh
     image: diegosouzapw/omniroute:latest
     networks:
-      default: null
+      ai-ml: null
+      proxy: null
     restart: unless-stopped
+    secrets:
+    - source: redis_password
+      target: /run/secrets/redis_password
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/ai/omniroute/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
   openwebui:
     deploy:
       resources:
@@ -1073,10 +1122,28 @@ services:
         window: 2m0s
     entrypoint:
     - /entrypoint-wrapper.sh
+    environment:
+      CORS_ALLOWED_ORIGINS: http://plane.wazzan.us
+      WEB_URL: http://plane.wazzan.us
     image: makeplane/plane-backend:stable
     networks:
-      default: null
+      database: null
+      productivity: null
+      proxy: null
     restart: unless-stopped
+    secrets:
+    - source: plane_database_url
+      target: /run/secrets/plane_database_url
+    - source: plane_redis_url
+      target: /run/secrets/plane_redis_url
+    - source: plane_secret_key
+      target: /run/secrets/plane_secret_key
+    volumes:
+    - type: bind
+      source: /mnt/d/docker/compose/productivity/plane/entrypoint-wrapper.sh
+      target: /entrypoint-wrapper.sh
+      read_only: true
+      bind: {}
   plane-web:
     deploy:
       resources:
@@ -1643,6 +1710,10 @@ networks:
     name: docker_monitoring
     driver: overlay
     attachable: true
+  productivity:
+    name: docker_productivity
+    driver: overlay
+    attachable: true
   proxy:
     name: docker_proxy
     driver: overlay
@@ -1742,6 +1813,15 @@ secrets:
   openrouter_key_3:
     name: docker_openrouter_key_3
     file: /home/alwazw/docker/secrets/external_llm_keys/openrouter_key_3.txt
+  plane_database_url:
+    name: docker_plane_database_url
+    file: /home/alwazw/docker/secrets/plane_database_url.txt
+  plane_redis_url:
+    name: docker_plane_redis_url
+    file: /home/alwazw/docker/secrets/plane_redis_url.txt
+  plane_secret_key:
+    name: docker_plane_secret_key
+    file: /home/alwazw/docker/secrets/plane_secret_key.txt
   postgres_password:
     name: docker_postgres_password
     file: /home/alwazw/docker/secrets/postgres_password.txt
