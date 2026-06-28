@@ -11,6 +11,10 @@ extracted_at: '2026-06-15T07:36:24.448Z'
 
 **No agent may mark a container deployment as complete based solely on `docker ps` uptime or a passing container return code.** The following 4-step validation is mandatory for every deployment, modification, or infrastructure change.
 
+## Swarm/WSL2 Note
+
+When validating **Docker Swarm stacks on WSL2**, the ingress routing mesh does not work — host-level `curl` to published ports will always timeout. Use in-container validation instead (`docker exec <container> curl http://localhost:<port>`) or rely on healthcheck status from `docker service inspect`. See the `swarm-validation` skill for the full methodology.
+
 ## Step 1: Structural Health Check
 
 Map the full Docker daemon state:
