@@ -473,3 +473,72 @@ ss -tlnp | grep <port>
 ## License
 
 Private — All rights reserved. This project is not open-source.
+
+---
+
+## Quick Start Guide (Non-Technical)
+
+### Deploy the Stack
+
+```bash
+# 1. Navigate to the project directory
+cd ~/docker
+
+# 2. Deploy (or update) the entire stack
+docker stack deploy -c stack-merged.yml local-stack
+
+# 3. Wait ~2 minutes for services to start
+# Watch progress:
+watch docker service ls
+```
+
+### Roll Back
+
+```bash
+# Remove the entire stack (stops all containers, keeps data)
+docker stack rm local-stack
+
+# Redeploy from the pre-swarm compose files (if needed)
+env DOMAIN=wazzan.us docker compose --profile ai --profile ci --profile monitoring --profile network --profile management --profile security --profile productivity up -d
+```
+
+### Check Service Health
+
+```bash
+# List all services and their status (look for 1/1 in REPLICAS)
+docker service ls
+
+# Check a specific service's logs
+docker service logs local-stack_postgres --tail 20
+
+# Enter a running container for debugging
+docker exec -it $(docker ps --filter name=local-stack_postgres -q) bash
+```
+
+### Where Things Live
+
+| What | Where |
+|------|-------|
+| Compose files | `compose/<category>/<service>/docker-compose.yml` |
+| Secrets | `~/docker/secrets/<name>.txt` (NEVER in .env) |
+| Docker secrets | `docker secret ls` |
+| Service data | Bind mounts in each service's compose file |
+| Logs | `docker service logs local-stack_<service>` |
+| Network configs | `docker network ls` (overlay networks) |
+
+### Common Failure Recovery
+
+| Problem | Fix |
+|---------|-----|
+| Service stuck in "Preparing" | `docker service update --force local-stack_<service>` |
+| "bind source path does not exist" | Create the missing directory: `mkdir -p /path/to/dir` |
+| Secret not found | `cat ~/docker/secrets/<name>.txt \| docker secret create docker_<name> -` |
+| WSL2 networking broken | `sudo bash ~/docker/scripts/fix-docker-networking.sh` |
+| Service crashed | Check logs: `docker service logs local-stack_<service> --tail 50` |
+
+### Swarm Ingress Note
+
+On WSL2, the Swarm routing mesh doesn't forward published ports to localhost. Services are accessible:
+- **Internally**: via overlay DNS (e.g., `postgres:5432` from any container on the same network)
+- **Externally**: via Cloudflare Tunnel (e.g., `https://grafana.wazzan.us`)
+- **For debugging**: `docker exec <container> curl http://localhost:<port>`
